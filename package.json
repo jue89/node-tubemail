@@ -1,12 +1,22 @@
 {
-	"name": "tubemail",
-	"version": "0.0.0",
-	"description": "TLS Mesh Network",
-	"main": "index.js",
-	"directories": { },
-	"scripts": { },
-	"author": "Jue <me@jue.yt>",
-	"license": "MIT",
-	"dependencies": { },
-	"devDependencies": { }
+  "name": "tubemail",
+  "version": "0.0.0",
+  "description": "TLS Mesh Network",
+  "main": "index.js",
+  "directories": {},
+  "scripts": {
+    "pretest": "jshint *.js lib/*.js"
+  },
+  "author": "Jue <me@jue.yt>",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "jshint": "^2.9.3"
+  },
+  "jshintConfig": {
+    "esversion": 6,
+    "node": true,
+    "strict": true,
+    "varstmt": true
+  }
 }

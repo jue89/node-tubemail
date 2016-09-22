@@ -1,0 +1,12 @@
+{
+	"name": "tubemail",
+	"version": "0.0.0",
+	"description": "TLS Mesh Network",
+	"main": "index.js",
+	"directories": { },
+	"scripts": { },
+	"author": "Jue <me@jue.yt>",
+	"license": "MIT",
+	"dependencies": { },
+	"devDependencies": { }
+}

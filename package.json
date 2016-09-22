@@ -9,14 +9,15 @@
   },
   "author": "Jue <me@jue.yt>",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "json-gate": "^0.8.22"
+  },
   "devDependencies": {
     "jshint": "^2.9.3"
   },
   "jshintConfig": {
     "esversion": 6,
     "node": true,
-    "strict": true,
     "varstmt": true
   }
 }

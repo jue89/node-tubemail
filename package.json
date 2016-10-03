@@ -10,7 +10,8 @@
   "author": "Jue <me@jue.yt>",
   "license": "MIT",
   "dependencies": {
-    "json-gate": "^0.8.22"
+    "json-gate": "^0.8.22",
+    "uuid": "^2.0.3"
   },
   "devDependencies": {
     "jshint": "^2.9.3"

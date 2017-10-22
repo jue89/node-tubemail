@@ -1,12 +1,18 @@
 {
-	"name": "tubemail",
-	"version": "0.0.0",
-	"description": "TLS Mesh Network",
-	"main": "index.js",
-	"directories": { },
-	"scripts": { },
-	"author": "Jue <me@jue.yt>",
-	"license": "MIT",
-	"dependencies": { },
-	"devDependencies": { }
+  "name": "tubemail",
+  "version": "0.0.0",
+  "description": "TLS Mesh Network",
+  "main": "index.js",
+  "directories": {},
+  "scripts": {
+    "test": "happiness && jest",
+    "watch": "jest --watchAll"
+  },
+  "author": "Jue <me@jue.yt>",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "happiness": "^10.0.2",
+    "jest": "^21.2.1"
+  }
 }

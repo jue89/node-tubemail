@@ -1,6 +1,9 @@
 jest.mock('tls');
 const tls = require('tls');
 
+jest.mock('x509');
+const x509 = require('x509');
+
 const tubemail = require('../tubemail.js');
 
 test('complain about missing key', () => {
@@ -126,5 +129,63 @@ test('listen on 4816 by default', () => {
 		discovery: () => {}
 	}).then(() => {
 		expect(tls.__server.listen.mock.calls[0][0]).toEqual(4816);
+	});
+});
+
+test('get fingerprint from given ca cert', () => {
+	expect.assertions(2);
+	const fingerPrint = 'AB:cd:ef:12';
+	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
+	const ca = Buffer.from('chucky');
+	return tubemail({
+		ca: ca,
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: () => {}
+	}).then((realm) => {
+		expect(realm.fingerPrint).toEqual(fingerPrint.replace(/:/g, '').toLowerCase());
+		expect(x509.parseCert.mock.calls[0][0]).toEqual(ca.toString());
+	});
+});
+
+test('call discovery with port and fingerprint', () => {
+	expect.assertions(2);
+	const fingerPrint = 'ab:cd';
+	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
+	const port = 12345;
+	const discovery = jest.fn();
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		port: port,
+		discovery: discovery
+	}).then(() => {
+		expect(discovery.mock.calls[0][0]).toEqual(port);
+		expect(discovery.mock.calls[0][1]).toEqual(fingerPrint.replace(/:/g, '').toLowerCase());
+	});
+});
+
+test('connect to discovered host', () => {
+	const discovery = jest.fn();
+	const ca = Buffer.alloc(0);
+	const key = Buffer.alloc(0);
+	const cert = Buffer.alloc(0);
+	return tubemail({
+		ca,
+		key,
+		cert,
+		discovery: discovery
+	}).then(() => {
+		const host = 'peni$';
+		const port = 69;
+		discovery.mock.calls[0][2]({ host, port });
+		expect(tls.connect.mock.calls[0][0]).toMatchObject({
+			ca: [ca],
+			key,
+			cert,
+			host,
+			port
+		});
 	});
 });

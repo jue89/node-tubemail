@@ -1,10 +1,28 @@
 const tls = require('tls');
+const x509 = require('x509');
 
-/* function Tubemail (opts, server) {
+function Tubemail (opts, server) {
+	// Store required data
+	this.ca = opts.ca;
+	this.key = opts.key;
+	this.cert = opts.cert;
+	this.fingerPrint = opts.fingerPrint;
 
-} */
+	// Kick off discovery
+	opts.discovery(opts.port, opts.fingerPrint, (peer) => {
+		tls.connect({
+			host: peer.host,
+			port: peer.port,
+			ca: [this.ca],
+			key: this.key,
+			cert: this.cert,
+			checkServerIdentity: () => undefined
+		});
+	});
+}
 
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };
+const ca2fp = (ca) => x509.parseCert(ca.toString()).fingerPrint.replace(/:/g, '').toLowerCase();
 
 module.exports = (opts) => new Promise((resolve) => {
 	// Check options
@@ -17,6 +35,9 @@ module.exports = (opts) => new Promise((resolve) => {
 	check(opts.discovery !== undefined, 'discovery is missing');
 	if (opts.port === undefined) opts.port = 4816;
 
+	// Read fingerprint from CA
+	opts.fingerPrint = ca2fp(opts.ca);
+
 	// Create new server
 	const server = tls.createServer({
 		key: opts.key,
@@ -25,5 +46,10 @@ module.exports = (opts) => new Promise((resolve) => {
 		requestCert: true,
 		rejectUnauthorized: true
 	});
-	server.listen(opts.port, () => resolve());
+
+	// Once the port has been opened we can start Tubemail
+	server.listen(opts.port, () => {
+		const tubemail = new Tubemail(opts, server);
+		resolve(tubemail);
+	});
 });

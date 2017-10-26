@@ -2,7 +2,7 @@
   "name": "tubemail",
   "version": "0.0.0",
   "description": "TLS Mesh Network",
-  "main": "index.js",
+  "main": "tubemail.js",
   "directories": {},
   "scripts": {
     "test": "happiness && jest",
@@ -14,5 +14,13 @@
   "devDependencies": {
     "happiness": "^10.0.2",
     "jest": "^21.2.1"
+  },
+  "happiness": {
+    "globals": [
+      "jest",
+      "describe",
+      "test",
+      "expect"
+    ]
   }
 }

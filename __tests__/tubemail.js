@@ -185,6 +185,7 @@ test('call discovery with port and fingerprint', () => {
 });
 
 test('connect to discovered host', () => {
+	expect.assertions(1);
 	const discovery = jest.fn();
 	const ca = Buffer.alloc(0);
 	const key = Buffer.alloc(0);
@@ -193,7 +194,7 @@ test('connect to discovered host', () => {
 		ca,
 		key,
 		cert,
-		discovery: discovery
+		discovery
 	}).then(() => {
 		const host = 'peni$';
 		const port = 69;
@@ -205,5 +206,77 @@ test('connect to discovered host', () => {
 			host,
 			port
 		});
+	});
+});
+
+test('connect to discovered host and close if connection is not authorised', () => {
+	expect.assertions(1);
+	const discovery = jest.fn();
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery
+	}).then(() => {
+		discovery.mock.calls[0][2]({});
+		tls.__socket.authorized = false;
+		tls.__socket.emit('secureConnect');
+		expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
+	});
+});
+
+test('connect to discovered host and close if no magic emoji has been sent', () => {
+	expect.assertions(1);
+	const discovery = jest.fn();
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery
+	}).then(() => {
+		discovery.mock.calls[0][2]({});
+		tls.__socket.authorized = true;
+		tls.__socket.emit('secureConnect');
+	}).then(() => {
+		tls.__socket.emit('data', Buffer.alloc(64 + 4, 'a'));
+		expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
+	});
+});
+
+test('connect to discovered host and close if remote id is higher', () => {
+	expect.assertions(1);
+	crypto.__randomBytes.mockImplementation(() => Buffer.alloc(64, 'a'));
+	const discovery = jest.fn();
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery
+	}).then(() => {
+		discovery.mock.calls[0][2]({});
+		tls.__socket.authorized = true;
+		tls.__socket.emit('secureConnect');
+	}).then(() => {
+		tls.__socket.emit('data', Buffer.concat([Buffer.from('🛰'), Buffer.alloc(64, 'b')]));
+		expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
+	});
+});
+
+test('connect to discovered host and close if remote id is equal', () => {
+	expect.assertions(1);
+	crypto.__randomBytes.mockImplementation(() => Buffer.alloc(64, 'a'));
+	const discovery = jest.fn();
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery
+	}).then(() => {
+		discovery.mock.calls[0][2]({});
+		tls.__socket.authorized = true;
+		tls.__socket.emit('secureConnect');
+	}).then(() => {
+		tls.__socket.emit('data', Buffer.concat([Buffer.from('🛰'), Buffer.alloc(64, 'a')]));
+		expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
 	});
 });

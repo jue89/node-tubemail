@@ -2,6 +2,10 @@ const crypto = require('crypto');
 const tls = require('tls');
 const x509 = require('x509');
 
+const magicEmoji = Buffer.from('🛰');
+const magicEmojiPresent = (x) => Buffer.compare(magicEmoji, x.slice(0, magicEmoji.length)) === 0;
+const checkID = (id, x) => Buffer.compare(id, x.slice(magicEmoji.length));
+
 const setRO = (obj, key, value) => Object.defineProperty(obj, key, {
 	value: value,
 	writable: false,
@@ -17,17 +21,30 @@ function Tubemail (opts, server) {
 	setRO(this, 'cert', opts.cert);
 	setRO(this, 'fingerPrint', opts.fingerPrint);
 
-	// Kick off discovery
-	opts.discovery(opts.port, opts.fingerPrint, (peer) => {
-		tls.connect({
+	// Kick off discovery and register callback for discovered peers
+	opts.discovery(opts.port, opts.fingerPrint, (peer) => new Promise((resolve, reject) => {
+		const socket = tls.connect({
 			host: peer.host,
 			port: peer.port,
 			ca: [this.ca],
 			key: this.key,
 			cert: this.cert,
 			checkServerIdentity: () => undefined
-		});
-	});
+		}).once('secureConnect', () => {
+			// Make sure the connection is authorized
+			if (!socket.authorized) return socket.destroy(new Error(socket.authorizationError));
+			socket.removeAllListeners();
+			resolve(socket);
+		}).once('error', (err) => reject(err));
+	}).then((socket) => new Promise((resolve, reject) => socket.once('data', (chunk) => {
+		const kill = (reason) => { socket.destroy(); reject(new Error(reason)); };
+
+		// Check if we should kill the connection
+		if (chunk.length !== 4 + 64) kill('Incomplete welcome message');
+		else if (!magicEmojiPresent(chunk)) kill('Magic missing');
+		else if (checkID(this.id, chunk) <= 0) kill('Remote ID higher than ours');
+		else resolve(socket);
+	}))));
 }
 
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };

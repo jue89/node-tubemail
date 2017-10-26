@@ -8,5 +8,7 @@ module.exports.createServer = jest.fn(() => {
 
 module.exports.connect = jest.fn(() => {
 	module.exports.__socket = new EventEmitter();
+	module.exports.__socket.authorized = true;
+	module.exports.__socket.destroy = jest.fn();
 	return module.exports.__socket;
 });

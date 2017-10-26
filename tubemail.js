@@ -1,12 +1,21 @@
+const crypto = require('crypto');
 const tls = require('tls');
 const x509 = require('x509');
 
+const setRO = (obj, key, value) => Object.defineProperty(obj, key, {
+	value: value,
+	writable: false,
+	enumerable: true,
+	configurable: false
+});
+
 function Tubemail (opts, server) {
 	// Store required data
-	this.ca = opts.ca;
-	this.key = opts.key;
-	this.cert = opts.cert;
-	this.fingerPrint = opts.fingerPrint;
+	setRO(this, 'id', opts.id);
+	setRO(this, 'ca', opts.ca);
+	setRO(this, 'key', opts.key);
+	setRO(this, 'cert', opts.cert);
+	setRO(this, 'fingerPrint', opts.fingerPrint);
 
 	// Kick off discovery
 	opts.discovery(opts.port, opts.fingerPrint, (peer) => {
@@ -48,8 +57,12 @@ module.exports = (opts) => new Promise((resolve) => {
 	});
 
 	// Once the port has been opened we can start Tubemail
-	server.listen(opts.port, () => {
-		const tubemail = new Tubemail(opts, server);
-		resolve(tubemail);
+	server.listen(opts.port, () => resolve(server));
+}).then((server) => new Promise((resolve, reject) => {
+	// Create some randomness! Gonna use this as an (hopefully) unique ID.
+	crypto.randomBytes(64, (err, id) => {
+		if (err) return reject(err);
+		opts.id = id;
+		resolve(new Tubemail(opts, server));
 	});
-});
+}));

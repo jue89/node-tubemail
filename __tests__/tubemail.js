@@ -1,6 +1,9 @@
 jest.mock('tls');
 const tls = require('tls');
 
+jest.mock('crypto');
+const crypto = require('crypto');
+
 jest.mock('x509');
 const x509 = require('x509');
 
@@ -129,6 +132,21 @@ test('listen on 4816 by default', () => {
 		discovery: () => {}
 	}).then(() => {
 		expect(tls.__server.listen.mock.calls[0][0]).toEqual(4816);
+	});
+});
+
+test('generate id', () => {
+	expect.assertions(2);
+	const id = Buffer.alloc(64, 'a');
+	crypto.__randomBytes.mockImplementation(() => id);
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: () => {}
+	}).then((realm) => {
+		expect(crypto.__randomBytes.mock.calls[0][0]).toEqual(id.length);
+		expect(realm.id).toEqual(id);
 	});
 });
 

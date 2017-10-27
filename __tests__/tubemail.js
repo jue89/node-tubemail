@@ -7,11 +7,14 @@ const crypto = require('crypto');
 jest.mock('x509');
 const x509 = require('x509');
 
+jest.mock('../neigh.js');
+const neigh = require('../neigh.js');
+
 const tubemail = require('../tubemail.js');
 
 test('complain about missing key', () => {
 	expect.assertions(1);
-	tubemail({
+	return tubemail({
 		cert: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
@@ -22,7 +25,7 @@ test('complain about missing key', () => {
 
 test('complain about key not being a Buffer', () => {
 	expect.assertions(1);
-	tubemail({
+	return tubemail({
 		key: true,
 		cert: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
@@ -34,7 +37,7 @@ test('complain about key not being a Buffer', () => {
 
 test('complain about missing cert', () => {
 	expect.assertions(1);
-	tubemail({
+	return tubemail({
 		key: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
@@ -45,7 +48,7 @@ test('complain about missing cert', () => {
 
 test('complain about cert not being a Buffer', () => {
 	expect.assertions(1);
-	tubemail({
+	return tubemail({
 		cert: true,
 		key: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
@@ -57,7 +60,7 @@ test('complain about cert not being a Buffer', () => {
 
 test('complain about missing ca', () => {
 	expect.assertions(1);
-	tubemail({
+	return tubemail({
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
 		discovery: () => {}
@@ -68,7 +71,7 @@ test('complain about missing ca', () => {
 
 test('complain about ca not being a Buffer', () => {
 	expect.assertions(1);
-	tubemail({
+	return tubemail({
 		ca: true,
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
@@ -79,20 +82,20 @@ test('complain about ca not being a Buffer', () => {
 });
 
 test('complain about missing discovery', () => {
-	const q = tubemail({
+	expect.assertions(1);
+	return tubemail({
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0)
+	}).catch((e) => {
+		expect(e).toHaveProperty('message', 'discovery is missing');
 	});
-	expect.assertions(1);
-	expect(q).rejects.toHaveProperty('message', 'discovery is missing');
 });
 
 test('create new server', () => {
 	const ca = Buffer.alloc(0);
 	const cert = Buffer.alloc(0);
 	const key = Buffer.alloc(0);
-	expect.assertions(1);
 	return tubemail({
 		ca: ca,
 		key: key,
@@ -110,7 +113,6 @@ test('create new server', () => {
 });
 
 test('listen on specified port', () => {
-	expect.assertions(1);
 	const port = 1234;
 	return tubemail({
 		ca: Buffer.alloc(0),
@@ -124,7 +126,6 @@ test('listen on specified port', () => {
 });
 
 test('listen on 4816 by default', () => {
-	expect.assertions(1);
 	return tubemail({
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
@@ -136,7 +137,6 @@ test('listen on 4816 by default', () => {
 });
 
 test('generate id', () => {
-	expect.assertions(2);
 	const id = Buffer.alloc(64, 'a');
 	crypto.__randomBytes.mockImplementation(() => id);
 	return tubemail({
@@ -151,7 +151,6 @@ test('generate id', () => {
 });
 
 test('get fingerprint from given ca cert', () => {
-	expect.assertions(2);
 	const fingerPrint = 'AB:cd:ef:12';
 	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
 	const ca = Buffer.from('chucky');
@@ -167,7 +166,6 @@ test('get fingerprint from given ca cert', () => {
 });
 
 test('call discovery with port and fingerprint', () => {
-	expect.assertions(2);
 	const fingerPrint = 'ab:cd';
 	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
 	const port = 12345;
@@ -184,99 +182,20 @@ test('call discovery with port and fingerprint', () => {
 	});
 });
 
-test('connect to discovered host', () => {
-	expect.assertions(1);
+test('call factory if discovery discovered client', () => {
 	const discovery = jest.fn();
-	const ca = Buffer.alloc(0);
-	const key = Buffer.alloc(0);
-	const cert = Buffer.alloc(0);
 	return tubemail({
-		ca,
-		key,
-		cert,
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
 		discovery
 	}).then(() => {
 		const host = 'peni$';
 		const port = 69;
 		discovery.mock.calls[0][2]({ host, port });
-		expect(tls.connect.mock.calls[0][0]).toMatchObject({
-			ca: [ca],
-			key,
-			cert,
+		expect(neigh.outbound.mock.calls[0][0]).toMatchObject({
 			host,
 			port
 		});
-	});
-});
-
-test('connect to discovered host and close if connection is not authorised', () => {
-	expect.assertions(1);
-	const discovery = jest.fn();
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		discovery
-	}).then(() => {
-		discovery.mock.calls[0][2]({});
-		tls.__socket.authorized = false;
-		tls.__socket.emit('secureConnect');
-		expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
-	});
-});
-
-test('connect to discovered host and close if no magic emoji has been sent', () => {
-	expect.assertions(1);
-	const discovery = jest.fn();
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		discovery
-	}).then(() => {
-		discovery.mock.calls[0][2]({});
-		tls.__socket.authorized = true;
-		tls.__socket.emit('secureConnect');
-	}).then(() => {
-		tls.__socket.emit('data', Buffer.alloc(64 + 4, 'a'));
-		expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
-	});
-});
-
-test('connect to discovered host and close if remote id is higher', () => {
-	expect.assertions(1);
-	crypto.__randomBytes.mockImplementation(() => Buffer.alloc(64, 'a'));
-	const discovery = jest.fn();
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		discovery
-	}).then(() => {
-		discovery.mock.calls[0][2]({});
-		tls.__socket.authorized = true;
-		tls.__socket.emit('secureConnect');
-	}).then(() => {
-		tls.__socket.emit('data', Buffer.concat([Buffer.from('🛰'), Buffer.alloc(64, 'b')]));
-		expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
-	});
-});
-
-test('connect to discovered host and close if remote id is equal', () => {
-	expect.assertions(1);
-	crypto.__randomBytes.mockImplementation(() => Buffer.alloc(64, 'a'));
-	const discovery = jest.fn();
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		discovery
-	}).then(() => {
-		discovery.mock.calls[0][2]({});
-		tls.__socket.authorized = true;
-		tls.__socket.emit('secureConnect');
-	}).then(() => {
-		tls.__socket.emit('data', Buffer.concat([Buffer.from('🛰'), Buffer.alloc(64, 'a')]));
-		expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
 	});
 });

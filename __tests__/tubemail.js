@@ -199,3 +199,16 @@ test('call factory if discovery discovered client', () => {
 		});
 	});
 });
+
+test('call factory for incoming connections', () => {
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: () => {}
+	}).then(() => {
+		const socket = {};
+		tls.__server.emit('secureConnection', socket);
+		expect(neigh.inbound.mock.calls[0][0]).toBe(socket);
+	});
+});

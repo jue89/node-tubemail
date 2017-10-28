@@ -18,6 +18,9 @@ function Tubemail (opts, server) {
 	setRO(this, 'cert', opts.cert);
 	setRO(this, 'fingerPrint', opts.fingerPrint);
 
+	// Listen for incoming connections
+	server.on('secureConnection', (socket) => neigh.inbound(socket));
+
 	// Kick off discovery and register callback for discovered peers
 	opts.discovery(opts.port, opts.fingerPrint, (peer) => neigh.outbound(peer));
 }

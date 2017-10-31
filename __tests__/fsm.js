@@ -19,6 +19,41 @@ test('transit from state1 to state2', (done) => {
 	})({});
 });
 
+test('transit from state1 to state2 and call enter callback', (done) => {
+	const data = {};
+	let called = 0;
+	FSM({
+		onEnter: (d) => {
+			try {
+				expect(d).toBe(data);
+				if (++called === 2) done();
+			} catch (e) { done(e); }
+		},
+		firstState: 'first',
+		states: {
+			first: () => Promise.resolve('second'),
+			second: () => {}
+		}
+	})(data);
+});
+
+test('transit from state1 to state2 and call leave callback', (done) => {
+	const data = {};
+	FSM({
+		onLeave: (d) => {
+			try {
+				expect(d).toBe(data);
+				done();
+			} catch (e) { done(e); }
+		},
+		firstState: 'first',
+		states: {
+			first: () => Promise.resolve('second'),
+			second: () => {}
+		}
+	})(data);
+});
+
 test('transit from state1 to state2 with external resolve', (done) => {
 	FSM({
 		firstState: 'first',
@@ -120,4 +155,20 @@ test('emit event if fsm is destroyed', (done) => {
 			done();
 		} catch (e) { done(e); }
 	});
+});
+
+test('call leave callback of fsm has been destroyed', (done) => {
+	const data = {};
+	FSM({
+		onLeave: (d) => {
+			try {
+				expect(d).toBe(data);
+				done();
+			} catch (e) { done(e); }
+		},
+		firstState: 'first',
+		states: {
+			first: (data, resolve, reject) => reject()
+		}
+	})(data);
 });

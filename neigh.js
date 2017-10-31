@@ -3,32 +3,36 @@ const tls = require('tls');
 const EMJ = Buffer.from('🛰');
 
 const connect = (opts) => new Promise((resolve, reject) => {
-	const socket = tls.connect(opts);
-
-	socket.once('secureConnect', () => {
+	const socket = tls.connect(opts).once('secureConnect', () => {
 		// Make sure the connection is authorized
 		if (!socket.authorized) return socket.destroy(new Error(socket.authorizationError));
 		socket.removeAllListeners();
 		resolve(socket);
-	});
-
-	socket.once('error', (err) => {
+	}).once('error', (err) => {
 		socket.removeAllListeners();
 		reject(err);
 	});
 });
 
-const checkWelcomeMessage = (socket, localId) => new Promise((resolve, reject) => socket.once('data', (x) => {
-	const kill = (reason) => { socket.destroy(); reject(new Error(reason)); };
+/* const checkAuth = (socket) => {
+	if (!socket.authorized) {
+		socket.destroy();
+		return Promise.reject(new Error(socket.authorizationError));
+	}
+	return Promise.resolve();
+}; */
 
-	// Check if we should kill the connection
-	if (x.length !== 4 + 64) kill('Incomplete welcome message');
-	else if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) kill('Magic missing');
-	else if (Buffer.compare(localId, x.slice(EMJ.length)) < 0) kill('Remote ID higher than ours');
-	else if (Buffer.compare(localId, x.slice(EMJ.length)) === 0) kill('We connected ourselfes');
-	else resolve(socket);
+// TODO: Socket close? Magic + ID in seperate chunks
+const recvId = (socket) => new Promise((resolve, reject) => socket.once('data', (x) => {
+	const kill = (reason) => { socket.destroy(); reject(new Error(reason)); };
+	if (x.length !== 4 + 64) return kill('Incomplete welcome message');
+	if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return kill('Magic missing');
+	resolve(x.slice(EMJ.length));
 }));
 
+/* const sendId = (socket) => {}; */
+
+// TODO: Timeouts
 const outbound = (local, remote) => connect({
 	host: remote.host,
 	port: remote.port,
@@ -36,8 +40,18 @@ const outbound = (local, remote) => connect({
 	key: local.key,
 	cert: local.cert,
 	checkServerIdentity: () => undefined
-}).then((socket) => checkWelcomeMessage(socket, local.id));
+}).then((socket) => recvId(socket).then((id) => {
+	const kill = (reason) => { socket.destroy(); return Promise.reject(new Error(reason)); };
+	if (Buffer.compare(local.id, id) < 0) return kill('Remote ID higher than ours');
+	if (Buffer.compare(local.id, id) === 0) return kill('We connected ourselfes');
+}));
+
+// Check authorized
+// Send Magic + ID
+// Receive remote Magic + ID
+const inbound = () => {};
 
 module.exports = {
-	outbound
+	outbound,
+	inbound
 };

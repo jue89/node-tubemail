@@ -105,6 +105,30 @@ test('call state event on transition', (done) => {
 	});
 });
 
+test('call named state event on transition', (done) => {
+	const data = {};
+	const fsm = FSM({
+		firstState: 'first',
+		states: {
+			first: () => Promise.resolve('second'),
+			second: () => {}
+		}
+	})(data);
+	fsm.once('state:first', (d, oldState) => {
+		try {
+			expect(d).toBe(data);
+			expect(oldState).toBe(undefined);
+		} catch (e) { done(e); }
+	});
+	fsm.once('state:second', (d, oldState) => {
+		try {
+			expect(d).toBe(data);
+			expect(oldState).toEqual('first');
+			done();
+		} catch (e) { done(e); }
+	});
+});
+
 test('destroy fsm on reject', (done) => {
 	const data = {};
 	const fsm = FSM({

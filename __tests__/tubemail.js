@@ -240,7 +240,7 @@ test('added learned outbound id', () => {
 		// Advertise discovery
 		discovery.mock.calls[0][2]({});
 		// Fake that we discovered a new neighbour and are about to send over our ID
-		neigh.__outbound.emit('state', {id}, 'sendLocalID');
+		neigh.__outbound.emit('state:sendLocalID', {id});
 		return realm;
 	}).then((realm) => {
 		expect(realm.knownIDs[0]).toEqual(id.toString('hex'));

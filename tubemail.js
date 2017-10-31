@@ -65,10 +65,10 @@ const fsmFactory = FSM({
 
 			// Kick off discovery and register callback for discovered peers
 			tm.startDiscovery(tm.port, tm.fingerPrint, (remote) => {
-				neigh.outbound(tm, remote).on('state', (n, newState) => {
+				neigh.outbound(tm, remote).on('state:sendLocalID', (n) => {
 					// If an outbound connection reached the point that we are sending
 					// our ID, the remote ID has been accepted -> store learned ID
-					if (newState === 'sendLocalID') tm.knownIDs.push(n.id.toString('hex'));
+					tm.knownIDs.push(n.id.toString('hex'));
 				}).on('destroy', (n) => {
 					// TODO: Remove known ID
 				});

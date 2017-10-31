@@ -34,6 +34,7 @@ FSM.prototype.enterState = function (newState) {
 		// We entered the new state! Update FSM and call events
 		this.state = newState;
 		this.emit('state', this.data, newState, oldState);
+		this.emit(`state:${newState}`, this.data, oldState);
 	}).then((nextState) => {
 		// We left the state
 		this.onLeave(this.data);

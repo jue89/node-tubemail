@@ -45,15 +45,13 @@ const outbound = (local, remote) => FSM({
 				if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return destroy(new Error('Magic missing'));
 
 				// Extract ID and check it if we should keep the connection
-				const remoteID = x.slice(EMJ.length);
-				const cmp = Buffer.compare(local.id, remoteID);
-				if (cmp < 0) return destroy(new Error('Remote ID higher than ours'));
-				if (cmp === 0) return destroy(new Error('We connected ourselfes'));
+				const remoteID = x.slice(EMJ.length).toString('hex');
+				if (local.id < remoteID) return destroy(new Error('Remote ID higher than ours'));
+				if (local.id === remoteID) return destroy(new Error('We connected ourselfes'));
 				setRO(n, 'id', remoteID);
 
 				// Check if we already know the other side
-				const remoteIDHex = remoteID.toString('hex');
-				if (local.knownIDs.indexOf(remoteIDHex) !== -1) return destroy(new Error('Remote ID is already connected'));
+				if (local.knownIDs.indexOf(remoteID) !== -1) return destroy(new Error('Remote ID is already connected'));
 
 				state('sendLocalID');
 			});
@@ -62,7 +60,10 @@ const outbound = (local, remote) => FSM({
 			// TODO: Emoji and ID in two chunks
 		},
 		sendLocalID: (n, state, destroy) => {
-			n.socket.write(Buffer.concat([EMJ, local.id]), () => state('connected'));
+			n.socket.write(
+				Buffer.concat([EMJ, Buffer.from(local.id, 'hex')]),
+				() => state('connected')
+			);
 		},
 		connected: (n, state, destroy) => {
 			// TODO: Close event

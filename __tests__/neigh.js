@@ -5,7 +5,7 @@ const neigh = require('../neigh.js');
 
 test('connect to discovered host', (done) => {
 	const local = {
-		id: Buffer.alloc(64, 'z'),
+		id: Buffer.alloc(64, 'z').toString('hex'),
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
@@ -71,7 +71,7 @@ test('destroy connection if remote id is higher than ours', (done) => {
 		Buffer.from('🛰'),
 		Buffer.alloc(64, 'b')
 	]));
-	neigh.outbound({ id: Buffer.alloc(64, 'a') }, {}).on('destroy', (data, reason, state) => {
+	neigh.outbound({ id: Buffer.alloc(64, 'a').toString('hex') }, {}).on('destroy', (data, reason, state) => {
 		try {
 			expect(state).toEqual('receiveRemoteID');
 			expect(reason.message).toEqual('Remote ID higher than ours');
@@ -86,7 +86,7 @@ test('destroy connection if remote id is equal', (done) => {
 		Buffer.from('🛰'),
 		Buffer.alloc(64, 'a')
 	]));
-	neigh.outbound({ id: Buffer.alloc(64, 'a') }, {}).on('destroy', (data, reason, state) => {
+	neigh.outbound({ id: Buffer.alloc(64, 'a').toString('hex') }, {}).on('destroy', (data, reason, state) => {
 		try {
 			expect(state).toEqual('receiveRemoteID');
 			expect(reason.message).toEqual('We connected ourselfes');
@@ -100,7 +100,7 @@ test('destroy connection if remote id is known', (done) => {
 	const id = Buffer.alloc(64, 'a');
 	tls.__onConnect.mockImplementationOnce(() => Buffer.concat([ Buffer.from('🛰'), id ]));
 	neigh.outbound({
-		id: Buffer.alloc(64, 'x'),
+		id: Buffer.alloc(64, 'x').toString('hex'),
 		knownIDs: [ id.toString('hex') ]
 	}, {}).on('destroy', (data, reason, state) => {
 		try {
@@ -120,7 +120,7 @@ test('send local ID if we wan\'t to say hi to outbound neigh', (done) => {
 	const remoteWelcome = Buffer.concat([ EMJ, remoteID ]);
 	tls.__onConnect.mockImplementationOnce(() => remoteWelcome);
 	const local = {
-		id: localID,
+		id: localID.toString('hex'),
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),

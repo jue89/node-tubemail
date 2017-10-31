@@ -95,7 +95,7 @@ test('generate id', () => {
 		discovery: () => {}
 	}).then((realm) => {
 		expect(crypto.__randomBytes.mock.calls[0][0]).toEqual(id.length);
-		expect(realm.id).toEqual(id);
+		expect(realm.id).toEqual(id.toString('hex'));
 	});
 });
 
@@ -195,7 +195,7 @@ test('call factory if discovery discovered client', () => {
 			ca,
 			key,
 			cert,
-			id
+			id: id.toString('hex')
 		});
 		expect(neigh.outbound.mock.calls[0][1]).toMatchObject({
 			host,
@@ -222,14 +222,14 @@ test('call factory for incoming connections', () => {
 			ca,
 			key,
 			cert,
-			id
+			id: id.toString('hex')
 		});
 		expect(neigh.inbound.mock.calls[0][1]).toBe(socket);
 	});
 });
 
 test('add learned outbound id', () => {
-	const id = Buffer.from('abcd');
+	const id = Buffer.from('abcd').toString('hex');
 	const discovery = jest.fn();
 	return tubemail({
 		ca: Buffer.alloc(0),
@@ -243,12 +243,12 @@ test('add learned outbound id', () => {
 		neigh.__outbound.emit('state:sendLocalID', {id});
 		return realm;
 	}).then((realm) => {
-		expect(realm.knownIDs[0]).toEqual(id.toString('hex'));
+		expect(realm.knownIDs[0]).toEqual(id);
 	});
 });
 
 test('add learned outbound neigh and raise event', (done) => {
-	const id = Buffer.from('abcd');
+	const id = Buffer.from('abcd').toString('hex');
 	const n = {id};
 	const discovery = jest.fn();
 	return tubemail({
@@ -259,7 +259,7 @@ test('add learned outbound neigh and raise event', (done) => {
 	}).then((realm) => {
 		realm.on('newNeigh', (n) => {
 			try {
-				expect(realm.neigh[id.toString('hex')]).toBe(n);
+				expect(realm.neigh[id]).toBe(n);
 				done();
 			} catch (e) { done(e); }
 		});

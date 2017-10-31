@@ -51,7 +51,7 @@ const fsmFactory = FSM({
 		generateLocalID: (tm, state, destroy) => {
 			crypto.randomBytes(64, (err, id) => {
 				if (err) return destroy(err);
-				setRO(tm, 'id', id);
+				setRO(tm, 'id', id.toString('hex'));
 				state('createServer');
 			});
 		},
@@ -77,10 +77,10 @@ const fsmFactory = FSM({
 				neigh.outbound(tm, remote).on('state:sendLocalID', (n) => {
 					// If an outbound connection reached the point that we are sending
 					// our ID, the remote ID has been accepted -> store learned ID
-					tm.knownIDs.push(n.id.toString('hex'));
+					tm.knownIDs.push(n.id);
 				}).on('state:connected', (n) => {
 					// Finally store handle if the connection has been established
-					tm.neigh[n.id.toString('hex')] = n;
+					tm.neigh[n.id] = n;
 					tm.emit('newNeigh', n);
 				}).on('destroy', (n) => {
 					// TODO: Remove known ID

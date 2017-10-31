@@ -47,6 +47,7 @@ const util = require('util');
 function FSM (config, data) {
 	EventEmitter.call(this);
 
+	this.onDestroy = config.onDestroy;
 	this.states = config.states;
 	this.data = data;
 	this.state = undefined;
@@ -56,17 +57,30 @@ function FSM (config, data) {
 
 util.inherits(FSM, EventEmitter);
 
-FSM.prototype.enterState = function (stateName) {
-	new Promise((resolve) => {
-		const ret = this.states[stateName](this.data, resolve);
+FSM.prototype.enterState = function (newState) {
+	new Promise((resolve, reject) => {
+		const oldState = this.state;
 
-		this.emit('state', stateName, this.state);
-		this.state = stateName;
-
+		// Try to enter new state and setup resolve / reject listener
+		const ret = this.states[newState](this.data, resolve, reject);
 		if (ret instanceof Promise) {
-			ret.then((nextState) => resolve(nextState));
+			ret.then((nextState) => resolve(nextState)).catch((e) => reject(e));
 		}
-	}).then((nextState) => this.enterState(nextState));
+
+		// We entered the new state! Update FSM and call events
+		this.state = newState;
+		this.emit('state', this.data, newState, oldState);
+	}).then((nextState) => {
+		this.enterState(nextState);
+	}).catch((err) => {
+		// Leave the FSM
+		const oldState = this.state;
+		this.state = undefined;
+
+		// Call events
+		if (typeof this.onDestroy === 'function') this.onDestroy(this.data, err, oldState);
+		this.emit('destroy', this.data, err, oldState);
+	});
 };
 
 module.exports = (config) => (data) => new FSM(config, data);

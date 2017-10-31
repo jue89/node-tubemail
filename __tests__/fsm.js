@@ -45,24 +45,79 @@ test('expose data object', (done) => {
 });
 
 test('call state event on transition', (done) => {
+	const data = {};
 	const fsm = FSM({
 		firstState: 'first',
 		states: {
 			first: () => Promise.resolve('second'),
 			second: () => {}
 		}
-	})({});
-	fsm.once('state', (newState, oldState) => {
+	})(data);
+	fsm.once('state', (d, newState, oldState) => {
 		try {
+			expect(d).toBe(data);
 			expect(newState).toEqual('first');
 			expect(oldState).toBe(undefined);
-			fsm.once('state', (newState, oldState) => {
+			fsm.once('state', (d, newState, oldState) => {
 				try {
+					expect(d).toBe(data);
 					expect(newState).toEqual('second');
 					expect(oldState).toEqual('first');
 					done();
 				} catch (e) { done(e); }
 			});
+		} catch (e) { done(e); }
+	});
+});
+
+test('destroy fsm on reject', (done) => {
+	const data = {};
+	const fsm = FSM({
+		onDestroy: (d, err, state) => {
+			try {
+				expect(d).toBe(data);
+				expect(err.message).toEqual('test');
+				expect(state).toEqual('first');
+				expect(fsm.state).toBe(undefined);
+				done();
+			} catch (e) { done(e); }
+		},
+		firstState: 'first',
+		states: {
+			first: () => Promise.reject(new Error('test'))
+		}
+	})(data);
+});
+
+test('destroy fsm with reject callback', (done) => {
+	FSM({
+		onDestroy: (d, err) => {
+			try {
+				expect(err.message).toEqual('test');
+				done();
+			} catch (e) { done(e); }
+		},
+		firstState: 'first',
+		states: {
+			first: (data, resolve, reject) => reject(new Error('test'))
+		}
+	})({});
+});
+
+test('emit event if fsm is destroyed', (done) => {
+	const data = {};
+	const fsm = FSM({
+		firstState: 'first',
+		states: {
+			first: (data, resolve, reject) => reject(new Error('test'))
+		}
+	})(data);
+	fsm.on('destroy', (d, err, state) => {
+		try {
+			expect(d).toBe(data);
+			expect(err.message).toEqual('test');
+			expect(state).toEqual('first');
+			done();
 		} catch (e) { done(e); }
 	});
 });

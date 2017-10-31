@@ -1,8 +1,11 @@
 const crypto = require('crypto');
 const tls = require('tls');
 const x509 = require('x509');
+const FSM = require('./fsm.js');
 const neigh = require('./neigh.js');
 
+const check = (cond, msg) => { if (!cond) throw new Error(msg); };
+const ca2fp = (ca) => x509.parseCert(ca.toString()).fingerPrint.replace(/:/g, '').toLowerCase();
 const setRO = (obj, key, value) => Object.defineProperty(obj, key, {
 	value: value,
 	writable: false,
@@ -10,25 +13,7 @@ const setRO = (obj, key, value) => Object.defineProperty(obj, key, {
 	configurable: false
 });
 
-function Tubemail (opts, server) {
-	// Store required data
-	setRO(this, 'id', opts.id);
-	setRO(this, 'ca', opts.ca);
-	setRO(this, 'key', opts.key);
-	setRO(this, 'cert', opts.cert);
-	setRO(this, 'fingerPrint', opts.fingerPrint);
-
-	// Listen for incoming connections
-	server.on('secureConnection', (socket) => neigh.inbound(socket));
-
-	// Kick off discovery and register callback for discovered peers
-	opts.discovery(opts.port, opts.fingerPrint, (peer) => neigh.outbound(peer));
-}
-
-const check = (cond, msg) => { if (!cond) throw new Error(msg); };
-const ca2fp = (ca) => x509.parseCert(ca.toString()).fingerPrint.replace(/:/g, '').toLowerCase();
-
-module.exports = (opts) => new Promise((resolve) => {
+function Tubemail (opts) {
 	// Check options
 	check(opts.key !== undefined, 'key is missing');
 	check(opts.key instanceof Buffer, 'key must be a buffer');
@@ -39,25 +24,65 @@ module.exports = (opts) => new Promise((resolve) => {
 	check(opts.discovery !== undefined, 'discovery is missing');
 	if (opts.port === undefined) opts.port = 4816;
 
-	// Read fingerprint from CA
-	opts.fingerPrint = ca2fp(opts.ca);
+	// Store opt data
+	setRO(this, 'key', opts.key);
+	setRO(this, 'cert', opts.cert);
+	setRO(this, 'ca', opts.ca);
+	this.port = opts.port;
+	this.startDiscovery = opts.discovery;
 
-	// Create new server
-	const server = tls.createServer({
-		key: opts.key,
-		cert: opts.cert,
-		ca: [opts.ca],
-		requestCert: true,
-		rejectUnauthorized: true
-	});
+	// Extract ca fingerprint
+	setRO(this, 'fingerPrint', ca2fp(opts.ca));
+}
 
-	// Once the port has been opened we can start Tubemail
-	server.listen(opts.port, () => resolve(server));
-}).then((server) => new Promise((resolve, reject) => {
-	// Create some randomness! Gonna use this as an (hopefully) unique ID.
-	crypto.randomBytes(64, (err, id) => {
-		if (err) return reject(err);
-		opts.id = id;
-		resolve(new Tubemail(opts, server));
-	});
-}));
+const fsmFactory = FSM({
+	firstState: 'generateLocalID',
+	states: {
+		generateLocalID: (tm, state, destroy) => {
+			crypto.randomBytes(64, (err, id) => {
+				if (err) return destroy(err);
+				setRO(tm, 'id', id);
+				state('createServer');
+			});
+		},
+		createServer: (tm, state, destroy) => {
+			tm.socket = tls.createServer({
+				key: tm.key,
+				cert: tm.cert,
+				ca: [tm.ca],
+				requestCert: true,
+				rejectUnauthorized: true
+			});
+			tm.socket.listen(tm.port, () => state('listening'));
+			// TODO: Listen fails
+		},
+		listening: (tm, state, destroy) => {
+			// React to incoming connects
+			tm.socket.on('secureConnection', (socket) => neigh.inbound(tm, socket));
+
+			// Kick off discovery and register callback for discovered peers
+			tm.startDiscovery(
+				tm.port,
+				tm.fingerPrint,
+				(remote) => neigh.outbound(tm, remote)
+			);
+
+			// TODO: socket closed
+		}
+	},
+	onLeave: (tm) => {
+		// if (tm.socket) tm.socket.removeAllListeners();
+	},
+	onDestroy: (tm) => {
+		// if (tm.stopDiscovery) tm.stopDiscovery();
+		// if (tm.socket.listening) tm.socket.close();
+	}
+});
+
+module.exports = (opts) => new Promise((resolve, reject) => {
+	fsmFactory(new Tubemail(opts))
+		.on('destroy', (tubemail, err, state) => reject(err))
+		.on('state', (tubemail, newState) => {
+			if (newState === 'listening') resolve(tubemail);
+		});
+});

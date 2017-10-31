@@ -13,82 +13,89 @@ const neigh = require('../neigh.js');
 const tubemail = require('../tubemail.js');
 
 test('complain about missing key', () => {
-	expect.assertions(1);
 	return tubemail({
 		cert: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
-	}).catch((e) => {
+	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
 		expect(e).toHaveProperty('message', 'key is missing');
 	});
 });
 
 test('complain about key not being a Buffer', () => {
-	expect.assertions(1);
 	return tubemail({
 		key: true,
 		cert: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
-	}).catch((e) => {
+	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
 		expect(e).toHaveProperty('message', 'key must be a buffer');
 	});
 });
 
 test('complain about missing cert', () => {
-	expect.assertions(1);
 	return tubemail({
 		key: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
-	}).catch((e) => {
+	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
 		expect(e).toHaveProperty('message', 'cert is missing');
 	});
 });
 
 test('complain about cert not being a Buffer', () => {
-	expect.assertions(1);
 	return tubemail({
 		cert: true,
 		key: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
-	}).catch((e) => {
+	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
 		expect(e).toHaveProperty('message', 'cert must be a buffer');
 	});
 });
 
 test('complain about missing ca', () => {
-	expect.assertions(1);
 	return tubemail({
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
 		discovery: () => {}
-	}).catch((e) => {
+	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
 		expect(e).toHaveProperty('message', 'ca is missing');
 	});
 });
 
 test('complain about ca not being a Buffer', () => {
-	expect.assertions(1);
 	return tubemail({
 		ca: true,
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
 		discovery: () => {}
-	}).catch((e) => {
+	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
 		expect(e).toHaveProperty('message', 'ca must be a buffer');
 	});
 });
 
 test('complain about missing discovery', () => {
-	expect.assertions(1);
 	return tubemail({
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0)
-	}).catch((e) => {
+	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
 		expect(e).toHaveProperty('message', 'discovery is missing');
+	});
+});
+
+test('generate id', () => {
+	const id = Buffer.alloc(64, 'a');
+	crypto.__randomBytes.mockImplementation(() => id);
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: () => {}
+	}).then((realm) => {
+		expect(crypto.__randomBytes.mock.calls[0][0]).toEqual(id.length);
+		expect(realm.id).toEqual(id);
 	});
 });
 
@@ -136,20 +143,6 @@ test('listen on 4816 by default', () => {
 	});
 });
 
-test('generate id', () => {
-	const id = Buffer.alloc(64, 'a');
-	crypto.__randomBytes.mockImplementation(() => id);
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		discovery: () => {}
-	}).then((realm) => {
-		expect(crypto.__randomBytes.mock.calls[0][0]).toEqual(id.length);
-		expect(realm.id).toEqual(id);
-	});
-});
-
 test('get fingerprint from given ca cert', () => {
 	const fingerPrint = 'AB:cd:ef:12';
 	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
@@ -183,17 +176,28 @@ test('call discovery with port and fingerprint', () => {
 });
 
 test('call factory if discovery discovered client', () => {
+	const ca = Buffer.alloc(0);
+	const key = Buffer.alloc(0);
+	const cert = Buffer.alloc(0);
+	const id = Buffer.alloc(64, 'a');
 	const discovery = jest.fn();
+	crypto.__randomBytes.mockImplementation(() => id);
 	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
+		ca,
+		key,
+		cert,
 		discovery
 	}).then(() => {
 		const host = 'peni$';
 		const port = 69;
 		discovery.mock.calls[0][2]({ host, port });
 		expect(neigh.outbound.mock.calls[0][0]).toMatchObject({
+			ca,
+			key,
+			cert,
+			id
+		});
+		expect(neigh.outbound.mock.calls[0][1]).toMatchObject({
 			host,
 			port
 		});
@@ -201,14 +205,25 @@ test('call factory if discovery discovered client', () => {
 });
 
 test('call factory for incoming connections', () => {
+	const ca = Buffer.alloc(0);
+	const key = Buffer.alloc(0);
+	const cert = Buffer.alloc(0);
+	const id = Buffer.alloc(64, 'a');
+	crypto.__randomBytes.mockImplementation(() => id);
 	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
+		ca,
+		key,
+		cert,
 		discovery: () => {}
 	}).then(() => {
 		const socket = {};
 		tls.__server.emit('secureConnection', socket);
-		expect(neigh.inbound.mock.calls[0][0]).toBe(socket);
+		expect(neigh.inbound.mock.calls[0][0]).toMatchObject({
+			ca,
+			key,
+			cert,
+			id
+		});
+		expect(neigh.inbound.mock.calls[0][1]).toBe(socket);
 	});
 });

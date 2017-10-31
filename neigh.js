@@ -43,12 +43,18 @@ const outbound = (local, remote) => FSM({
 				// Check if welcome message is complete
 				if (x.length !== EMJ.length + 64) return destroy(new Error('Incomplete welcome message'));
 				if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return destroy(new Error('Magic missing'));
-				// Extract ID and check it
+
+				// Extract ID and check it if we should keep the connection
 				const remoteID = x.slice(EMJ.length);
 				const cmp = Buffer.compare(local.id, remoteID);
 				if (cmp < 0) return destroy(new Error('Remote ID higher than ours'));
 				if (cmp === 0) return destroy(new Error('We connected ourselfes'));
 				setRO(d, 'id', remoteID);
+
+				// Check if we already know the other side
+				const remoteIDHex = remoteID.toString('hex');
+				if (local.knownIDs.indexOf(remoteIDHex) !== -1) return destroy(new Error('Remote ID is already connected'));
+
 				state('sendLocalID');
 			});
 			// TODO: Close event

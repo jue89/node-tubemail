@@ -227,3 +227,22 @@ test('call factory for incoming connections', () => {
 		expect(neigh.inbound.mock.calls[0][1]).toBe(socket);
 	});
 });
+
+test('added learned outbound id', () => {
+	const id = Buffer.from('abcd');
+	const discovery = jest.fn();
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: discovery
+	}).then((realm) => {
+		// Advertise discovery
+		discovery.mock.calls[0][2]({});
+		// Fake that we discovered a new neighbour and are about to send over our ID
+		neigh.__outbound.emit('state', {id}, 'sendLocalID');
+		return realm;
+	}).then((realm) => {
+		expect(realm.knownIDs[0]).toEqual(id.toString('hex'));
+	});
+});

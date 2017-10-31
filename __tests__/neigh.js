@@ -8,7 +8,8 @@ test('connect to discovered host', (done) => {
 		id: Buffer.alloc(64, 'z'),
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0)
+		cert: Buffer.alloc(0),
+		knownIDs: []
 	};
 	const remote = {
 		host: 'peni$',
@@ -89,6 +90,22 @@ test('destroy connection if remote id is equal', (done) => {
 		try {
 			expect(state).toEqual('receiveRemoteID');
 			expect(reason.message).toEqual('We connected ourselfes');
+			expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
+			done();
+		} catch (e) { done(e); }
+	});
+});
+
+test('destroy connection if remote id is known', (done) => {
+	const id = Buffer.alloc(64, 'a');
+	tls.__onConnect.mockImplementationOnce(() => Buffer.concat([ Buffer.from('🛰'), id ]));
+	neigh.outbound({
+		id: Buffer.alloc(64, 'x'),
+		knownIDs: [ id.toString('hex') ]
+	}, {}).on('destroy', (data, reason, state) => {
+		try {
+			expect(state).toEqual('receiveRemoteID');
+			expect(reason.message).toEqual('Remote ID is already connected');
 			expect(tls.__socket.destroy.mock.calls.length).toEqual(1);
 			done();
 		} catch (e) { done(e); }

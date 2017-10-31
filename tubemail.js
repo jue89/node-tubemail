@@ -31,6 +31,9 @@ function Tubemail (opts) {
 	this.port = opts.port;
 	this.startDiscovery = opts.discovery;
 
+	// Create stores
+	setRO(this, 'knownIDs', []);
+
 	// Extract ca fingerprint
 	setRO(this, 'fingerPrint', ca2fp(opts.ca));
 }
@@ -61,11 +64,15 @@ const fsmFactory = FSM({
 			tm.socket.on('secureConnection', (socket) => neigh.inbound(tm, socket));
 
 			// Kick off discovery and register callback for discovered peers
-			tm.startDiscovery(
-				tm.port,
-				tm.fingerPrint,
-				(remote) => neigh.outbound(tm, remote)
-			);
+			tm.startDiscovery(tm.port, tm.fingerPrint, (remote) => {
+				neigh.outbound(tm, remote).on('state', (n, newState) => {
+					// If an outbound connection reached the point that we are sending
+					// our ID, the remote ID has been accepted -> store learned ID
+					if (newState === 'sendLocalID') tm.knownIDs.push(n.id.toString('hex'));
+				}).on('destroy', (n) => {
+					// TODO: Remove known ID
+				});
+			});
 
 			// TODO: socket closed
 		}

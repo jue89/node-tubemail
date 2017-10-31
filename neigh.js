@@ -1,50 +1,63 @@
 const tls = require('tls');
+const FSM = require('./fsm.js');
 
 const EMJ = Buffer.from('🛰');
 
-const connect = (opts) => new Promise((resolve, reject) => {
-	const socket = tls.connect(opts).once('secureConnect', () => {
-		// Make sure the connection is authorized
-		if (!socket.authorized) return socket.destroy(new Error(socket.authorizationError));
-		socket.removeAllListeners();
-		resolve(socket);
-	}).once('error', (err) => {
-		socket.removeAllListeners();
-		reject(err);
-	});
+const setRO = (obj, key, value) => Object.defineProperty(obj, key, {
+	value: value,
+	writable: false,
+	enumerable: true,
+	configurable: false
 });
 
-/* const checkAuth = (socket) => {
-	if (!socket.authorized) {
-		socket.destroy();
-		return Promise.reject(new Error(socket.authorizationError));
+function Neigh (host, port) {
+	setRO(this, 'host', host);
+	setRO(this, 'port', port);
+}
+
+const outbound = (local, remote) => FSM({
+	onLeave: (d) => d._socket.removeAllListeners(),
+	onDestroy: (d) => { if (!d._socket.destroyed) d._socket.destroy(); },
+	firstState: 'connect',
+	states: {
+		connect: (d, state, destroy) => {
+			d._socket = tls.connect({
+				host: remote.host,
+				port: remote.port,
+				ca: [local.ca],
+				key: local.key,
+				cert: local.cert,
+				checkServerIdentity: () => undefined
+			}).on('secureConnect', () => {
+				// Make sure the connection is authorized
+				if (!d._socket.authorized) {
+					destroy(new Error(d._socket.authorizationError));
+				} else {
+					state('receiveRemoteID');
+				}
+			});
+			// TODO: Error event
+		},
+		receiveRemoteID: (d, state, destroy) => {
+			d._socket.on('data', (x) => {
+				// Check if welcome message is complete
+				if (x.length !== EMJ.length + 64) return destroy(new Error('Incomplete welcome message'));
+				if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return destroy(new Error('Magic missing'));
+				// Extract ID and check it
+				const remoteID = x.slice(EMJ.length);
+				const cmp = Buffer.compare(local.id, remoteID);
+				if (cmp < 0) return destroy(new Error('Remote ID higher than ours'));
+				if (cmp === 0) return destroy(new Error('We connected ourselfes'));
+				setRO(d, 'id', remoteID);
+				state('sendLocalID');
+			});
+			// TODO: Close event
+			// TODO: Timeout
+			// TODO: Emoji and ID in two chunks
+		},
+		sendLocalID: (d, state, destroy) => {}
 	}
-	return Promise.resolve();
-}; */
-
-// TODO: Socket close? Magic + ID in seperate chunks
-const recvId = (socket) => new Promise((resolve, reject) => socket.once('data', (x) => {
-	const kill = (reason) => { socket.destroy(); reject(new Error(reason)); };
-	if (x.length !== 4 + 64) return kill('Incomplete welcome message');
-	if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return kill('Magic missing');
-	resolve(x.slice(EMJ.length));
-}));
-
-/* const sendId = (socket) => {}; */
-
-// TODO: Timeouts
-const outbound = (local, remote) => connect({
-	host: remote.host,
-	port: remote.port,
-	ca: [local.ca],
-	key: local.key,
-	cert: local.cert,
-	checkServerIdentity: () => undefined
-}).then((socket) => recvId(socket).then((id) => {
-	const kill = (reason) => { socket.destroy(); return Promise.reject(new Error(reason)); };
-	if (Buffer.compare(local.id, id) < 0) return kill('Remote ID higher than ours');
-	if (Buffer.compare(local.id, id) === 0) return kill('We connected ourselfes');
-}));
+})(new Neigh(remote.host, remote.port));
 
 // Check authorized
 // Send Magic + ID

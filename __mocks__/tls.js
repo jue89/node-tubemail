@@ -29,7 +29,9 @@ module.exports.connect = jest.fn(() => {
 		setImmediate(() => module.exports.__socket.emit('secureConnect'));
 	}
 
+	module.exports.__socket.destroyed = false;
 	module.exports.__socket.destroy = jest.fn((e) => {
+		module.exports.__socket.destroyed = true;
 		if (e) module.exports.__socket.emit('error', e);
 	});
 

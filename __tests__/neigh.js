@@ -111,3 +111,30 @@ test('destroy connection if remote id is known', (done) => {
 		} catch (e) { done(e); }
 	});
 });
+
+test('send local ID if we wan\'t to say hi to outbound neigh', (done) => {
+	const EMJ = Buffer.from('🛰');
+	const localID = Buffer.alloc(64, 'z');
+	const localWelcome = Buffer.concat([ EMJ, localID ]);
+	const remoteID = Buffer.alloc(64, 'a');
+	const remoteWelcome = Buffer.concat([ EMJ, remoteID ]);
+	tls.__onConnect.mockImplementationOnce(() => remoteWelcome);
+	const local = {
+		id: localID,
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		knownIDs: [],
+		neigh: {}
+	};
+	const remote = {
+		host: 'peni$',
+		port: 69
+	};
+	neigh.outbound(local, remote).on('state:connected', (data, oldState) => {
+		try {
+			expect(tls.__socket.write.mock.calls[0][0].toString('hex')).toEqual(localWelcome.toString('hex'));
+			done();
+		} catch (e) { done(e); }
+	}).on('destroy', (e) => done(e));
+});

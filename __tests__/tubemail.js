@@ -228,7 +228,7 @@ test('call factory for incoming connections', () => {
 	});
 });
 
-test('added learned outbound id', () => {
+test('add learned outbound id', () => {
 	const id = Buffer.from('abcd');
 	const discovery = jest.fn();
 	return tubemail({
@@ -244,5 +244,28 @@ test('added learned outbound id', () => {
 		return realm;
 	}).then((realm) => {
 		expect(realm.knownIDs[0]).toEqual(id.toString('hex'));
+	});
+});
+
+test('add learned outbound neigh and raise event', (done) => {
+	const id = Buffer.from('abcd');
+	const n = {id};
+	const discovery = jest.fn();
+	return tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: discovery
+	}).then((realm) => {
+		realm.on('newNeigh', (n) => {
+			try {
+				expect(realm.neigh[id.toString('hex')]).toBe(n);
+				done();
+			} catch (e) { done(e); }
+		});
+		// Advertise discovery
+		discovery.mock.calls[0][2]({});
+		// Fake that we discovered a new neighbour and are about to send over our ID
+		neigh.__outbound.emit('state:connected', n);
 	});
 });

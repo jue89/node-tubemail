@@ -16,12 +16,12 @@ function Neigh (host, port) {
 }
 
 const outbound = (local, remote) => FSM({
-	onLeave: (d) => d._socket.removeAllListeners(),
-	onDestroy: (d) => { if (!d._socket.destroyed) d._socket.destroy(); },
+	onLeave: (n) => n.socket.removeAllListeners(),
+	onDestroy: (n) => { if (!n.socket.destroyed) n.socket.destroy(); },
 	firstState: 'connect',
 	states: {
-		connect: (d, state, destroy) => {
-			d._socket = tls.connect({
+		connect: (n, state, destroy) => {
+			n.socket = tls.connect({
 				host: remote.host,
 				port: remote.port,
 				ca: [local.ca],
@@ -30,16 +30,16 @@ const outbound = (local, remote) => FSM({
 				checkServerIdentity: () => undefined
 			}).on('secureConnect', () => {
 				// Make sure the connection is authorized
-				if (!d._socket.authorized) {
-					destroy(new Error(d._socket.authorizationError));
+				if (!n.socket.authorized) {
+					destroy(new Error(n.socket.authorizationError));
 				} else {
 					state('receiveRemoteID');
 				}
 			});
 			// TODO: Error event
 		},
-		receiveRemoteID: (d, state, destroy) => {
-			d._socket.on('data', (x) => {
+		receiveRemoteID: (n, state, destroy) => {
+			n.socket.on('data', (x) => {
 				// Check if welcome message is complete
 				if (x.length !== EMJ.length + 64) return destroy(new Error('Incomplete welcome message'));
 				if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return destroy(new Error('Magic missing'));
@@ -49,7 +49,7 @@ const outbound = (local, remote) => FSM({
 				const cmp = Buffer.compare(local.id, remoteID);
 				if (cmp < 0) return destroy(new Error('Remote ID higher than ours'));
 				if (cmp === 0) return destroy(new Error('We connected ourselfes'));
-				setRO(d, 'id', remoteID);
+				setRO(n, 'id', remoteID);
 
 				// Check if we already know the other side
 				const remoteIDHex = remoteID.toString('hex');
@@ -61,7 +61,12 @@ const outbound = (local, remote) => FSM({
 			// TODO: Timeout
 			// TODO: Emoji and ID in two chunks
 		},
-		sendLocalID: (d, state, destroy) => {}
+		sendLocalID: (n, state, destroy) => {
+			n.socket.write(Buffer.concat([EMJ, local.id]), () => state('connected'));
+		},
+		connected: (n, state, destroy) => {
+			// TODO: Close event
+		}
 	}
 })(new Neigh(remote.host, remote.port));
 

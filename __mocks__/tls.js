@@ -29,6 +29,8 @@ module.exports.connect = jest.fn(() => {
 		setImmediate(() => module.exports.__socket.emit('secureConnect'));
 	}
 
+	module.exports.__socket.write = jest.fn((chunk, cb) => cb());
+
 	module.exports.__socket.destroyed = false;
 	module.exports.__socket.destroy = jest.fn((e) => {
 		module.exports.__socket.destroyed = true;

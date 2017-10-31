@@ -1,5 +1,7 @@
+const EventEmitter = require('events');
 const crypto = require('crypto');
 const tls = require('tls');
+const util = require('util');
 const x509 = require('x509');
 const FSM = require('./fsm.js');
 const neigh = require('./neigh.js');
@@ -14,6 +16,8 @@ const setRO = (obj, key, value) => Object.defineProperty(obj, key, {
 });
 
 function Tubemail (opts) {
+	EventEmitter.call(this);
+
 	// Check options
 	check(opts.key !== undefined, 'key is missing');
 	check(opts.key instanceof Buffer, 'key must be a buffer');
@@ -33,10 +37,13 @@ function Tubemail (opts) {
 
 	// Create stores
 	setRO(this, 'knownIDs', []);
+	setRO(this, 'neigh', {});
 
 	// Extract ca fingerprint
 	setRO(this, 'fingerPrint', ca2fp(opts.ca));
 }
+
+util.inherits(Tubemail, EventEmitter);
 
 const fsmFactory = FSM({
 	firstState: 'generateLocalID',
@@ -61,7 +68,9 @@ const fsmFactory = FSM({
 		},
 		listening: (tm, state, destroy) => {
 			// React to incoming connects
-			tm.socket.on('secureConnection', (socket) => neigh.inbound(tm, socket));
+			tm.socket.on('secureConnection', (socket) => {
+				neigh.inbound(tm, socket);
+			});
 
 			// Kick off discovery and register callback for discovered peers
 			tm.startDiscovery(tm.port, tm.fingerPrint, (remote) => {
@@ -69,6 +78,10 @@ const fsmFactory = FSM({
 					// If an outbound connection reached the point that we are sending
 					// our ID, the remote ID has been accepted -> store learned ID
 					tm.knownIDs.push(n.id.toString('hex'));
+				}).on('state:connected', (n) => {
+					// Finally store handle if the connection has been established
+					tm.neigh[n.id.toString('hex')] = n;
+					tm.emit('newNeigh', n);
 				}).on('destroy', (n) => {
 					// TODO: Remove known ID
 				});

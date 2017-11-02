@@ -89,3 +89,18 @@ test('receive two buffers in one chunk', (done) => {
 	});
 	socket.emit('data', Buffer.concat([ stream, stream ]));
 });
+
+test('defer data events if no one is listening', (done) => {
+	const socket = createSocket();
+	const block = Buffer.alloc(64, 'a');
+	const stream = Buffer.concat([ Buffer.alloc(4), block ]);
+	stream.writeUInt32BE(block.length, 0);
+	const s2b = new Stream2Block(socket);
+	socket.emit('data', stream);
+	s2b.on('data', (data) => {
+		try {
+			expect(data.toString('hex')).toEqual(block.toString('hex'));
+			done();
+		} catch (e) { done(e); }
+	});
+});

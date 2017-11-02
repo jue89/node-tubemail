@@ -11,12 +11,9 @@ function Stream2Block (stream) {
 	let chunksLength = 0;
 	let length = -1;
 	const squashChunks = () => { if (chunks.length > 1) chunks = [ Buffer.concat(chunks) ]; };
-	const processChunk = (chunk) => {
-		chunks.push(chunk);
-		chunksLength += chunk.length;
-
+	const processChunk = () => {
 		// Try to convert stream data into blocks
-		while (true) {
+		while (this.listenerCount('data')) {
 			if (length === -1 && chunksLength >= 4) {
 				// No length has been read, yet -> try to read it
 				squashChunks();
@@ -40,9 +37,22 @@ function Stream2Block (stream) {
 	};
 
 	// Listen to events
-	this.stream.on('data', processChunk);
+	const onData = (chunk) => {
+		chunks.push(chunk);
+		chunksLength += chunk.length;
+		processChunk();
+	};
+	this.stream.on('data', onData);
+	// We want to process stored data after (-> setImmediate) a new listener
+	// has been added to the event emitter. This ensures that defered data is
+	// emitted after the data event listener has been added.
+	const onNewListener = () => {
+		setImmediate(() => processChunk());
+	};
+	this.on('newListener', onNewListener);
 	this.stream.on('close', () => {
-		this.stream.removeListener('data', processChunk);
+		this.stream.removeListener('data', onData);
+		this.removeListener('newListener', onNewListener);
 		delete this.stream;
 		this.emit('close');
 	});

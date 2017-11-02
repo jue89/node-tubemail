@@ -1,5 +1,6 @@
 const tls = require('tls');
 const FSM = require('./fsm.js');
+const S2B = require('./stream2block.js');
 
 const EMJ = Buffer.from('🛰');
 
@@ -16,8 +17,19 @@ function Neigh (host, port) {
 }
 
 const outbound = (local, remote) => FSM({
-	onLeave: (n) => n.socket.removeAllListeners(),
-	onDestroy: (n) => { if (!n.socket.destroyed) n.socket.destroy(); },
+	onLeave: (n) => {
+		if (n.socket) {
+			n.socket.removeAllListeners('secureConnect');
+			n.socket.removeAllListeners('error');
+		}
+		if (n.interface) {
+			n.interface.removeAllListeners('data');
+			n.interface.removeAllListeners('close');
+		}
+	},
+	onDestroy: (n) => {
+		if (n.socket && !n.socket.destroyed) n.socket.destroy();
+	},
 	firstState: 'connect',
 	states: {
 		connect: (n, state, destroy) => {
@@ -33,13 +45,14 @@ const outbound = (local, remote) => FSM({
 				if (!n.socket.authorized) {
 					destroy(new Error(n.socket.authorizationError));
 				} else {
+					n.interface = new S2B(n.socket);
 					state('receiveRemoteID');
 				}
 			});
 			// TODO: Error event
 		},
 		receiveRemoteID: (n, state, destroy) => {
-			n.socket.on('data', (x) => {
+			n.interface.on('data', (x) => {
 				// Check if welcome message is complete
 				if (x.length !== EMJ.length + 64) return destroy(new Error('Incomplete welcome message'));
 				if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return destroy(new Error('Magic missing'));
@@ -57,13 +70,9 @@ const outbound = (local, remote) => FSM({
 			});
 			// TODO: Close event
 			// TODO: Timeout
-			// TODO: Emoji and ID in two chunks
 		},
 		sendLocalID: (n, state, destroy) => {
-			n.socket.write(
-				Buffer.concat([EMJ, Buffer.from(local.id, 'hex')]),
-				() => state('connected')
-			);
+			n.interface.send(Buffer.concat([EMJ, Buffer.from(local.id, 'hex')]), () => state('connected'));
 		},
 		connected: (n, state, destroy) => {
 			// TODO: Close event

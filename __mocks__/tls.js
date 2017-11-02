@@ -19,9 +19,6 @@ module.exports.connect = jest.fn(() => {
 		module.exports.__socket.authorized = true;
 		setImmediate(() => {
 			module.exports.__socket.emit('secureConnect');
-			setImmediate(() => {
-				module.exports.__socket.emit('data', onConnect);
-			});
 		});
 	} else if (typeof onConnect === 'string') {
 		module.exports.__socket.authorized = false;

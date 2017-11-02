@@ -1,16 +1,17 @@
 const EventEmitter = require('events');
 const util = require('util');
 
-function Stream2Block (socket) {
+function Stream2Block (stream) {
 	EventEmitter.call(this);
 
-	this.socket = socket;
+	this.stream = stream;
 
+	// Internal chunk processor
 	let chunks = [];
 	let chunksLength = 0;
 	let length = -1;
 	const squashChunks = () => { if (chunks.length > 1) chunks = [ Buffer.concat(chunks) ]; };
-	this.socket.on('data', (chunk) => {
+	const processChunk = (chunk) => {
 		chunks.push(chunk);
 		chunksLength += chunk.length;
 
@@ -36,12 +37,22 @@ function Stream2Block (socket) {
 				break;
 			}
 		}
+	};
+
+	// Listen to events
+	this.stream.on('data', processChunk);
+	this.stream.on('close', () => {
+		this.stream.removeListener('data', processChunk);
+		delete this.stream;
+		this.emit('close');
 	});
 }
 
 util.inherits(Stream2Block, EventEmitter);
 
 Stream2Block.prototype.send = function (block, done) {
+	if (!this.stream) throw new Error('Stream has been closed');
+
 	// Alloc buffer for length field
 	const payload = [ Buffer.alloc(4) ];
 	let length = 0;
@@ -60,7 +71,7 @@ Stream2Block.prototype.send = function (block, done) {
 	// Write length field
 	payload[0].writeUInt32BE(length, 0);
 
-	this.socket.write(Buffer.concat(payload), done);
+	this.stream.write(Buffer.concat(payload), done);
 };
 
 module.exports = Stream2Block;

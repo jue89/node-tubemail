@@ -50,6 +50,8 @@ function Stream2Block (stream) {
 		setImmediate(() => processChunk());
 	};
 	this.on('newListener', onNewListener);
+	// Once the stream has been closed, we release the handle and remove our
+	// event listeners. So if you want to destroy s2b, just close the stream.
 	this.stream.on('close', () => {
 		this.stream.removeListener('data', onData);
 		this.removeListener('newListener', onNewListener);

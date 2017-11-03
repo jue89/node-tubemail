@@ -104,3 +104,10 @@ test('defer data events if no one is listening', (done) => {
 		} catch (e) { done(e); }
 	});
 });
+
+test('forward close event', (done) => {
+	const socket = createSocket();
+	const s2b = new Stream2Block(socket);
+	s2b.on('close', () => done());
+	socket.emit('close');
+});

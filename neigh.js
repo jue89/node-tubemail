@@ -48,8 +48,7 @@ const outbound = (local, remote) => FSM({
 					n.interface = new S2B(n.socket);
 					state('receiveRemoteID');
 				}
-			});
-			// TODO: Error event
+			}).on('error', (err) => destroy(err));
 		},
 		receiveRemoteID: (n, state, destroy) => {
 			n.interface.on('data', (x) => {
@@ -67,14 +66,14 @@ const outbound = (local, remote) => FSM({
 				if (local.knownIDs.indexOf(remoteID) !== -1) return destroy(new Error('Remote ID is already connected'));
 
 				state('sendLocalID');
-			});
-			// TODO: Close event
-			// TODO: Timeout
+			}).on('close', () => destroy(new Error('Remote host closed the connection')));
+			setTimeout(() => destroy(new Error('Remote host has not sent its ID')), 5000);
 		},
 		sendLocalID: (n, state, destroy) => {
 			n.interface.send(Buffer.concat([EMJ, Buffer.from(local.id, 'hex')]), () => state('connected'));
 		},
 		connected: (n, state, destroy) => {
+			// TODO: Data event
 			// TODO: Close event
 		}
 	}

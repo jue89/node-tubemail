@@ -4,11 +4,15 @@ jest.mock('tls');
 const tls = require('tls');
 
 jest.mock('../stream2block.js');
+const S2B = require('../stream2block.js');
 
 jest.mock('../fsm.js');
 const FSM = require('../fsm.js');
 
 const neigh = require('../neigh.js');
+
+jest.useFakeTimers();
+beforeEach(() => jest.clearAllTimers());
 
 describe('outbound factory', () => {
 	test('store host and port', () => {
@@ -34,6 +38,7 @@ describe('outbound factory', () => {
 		FSM.__config.states.connect(FSM.__data, (state) => {
 			try {
 				expect(state).toEqual('receiveRemoteID');
+				expect(FSM.__data.interface).toBeInstanceOf(S2B);
 				expect(tls.connect.mock.calls[0][0]).toMatchObject({
 					ca: [local.ca],
 					key: local.key,
@@ -45,6 +50,18 @@ describe('outbound factory', () => {
 			} catch (e) { done(e); }
 		});
 		tls.__socket.emit('secureConnect');
+	});
+
+	test('reject if connection attempt failed', (done) => {
+		neigh.outbound({}, {});
+		const err = new Error('Mimimi');
+		FSM.__config.states.connect({}, () => {}, (e) => {
+			try {
+				expect(e).toBe(err);
+				done();
+			} catch (e) { done(e); }
+		});
+		tls.__socket.emit('error', err);
 	});
 
 	test('reject if connection is not authorised', (done) => {
@@ -137,6 +154,32 @@ describe('outbound factory', () => {
 			Buffer.from('🛰'),
 			id
 		]));
+	});
+
+	test('reject if connection is closed', (done) => {
+		neigh.outbound({}, {});
+		const i = new EventEmitter();
+		const n = { interface: i };
+		FSM.__config.states.receiveRemoteID(n, () => {}, (err) => {
+			try {
+				expect(err.message).toEqual('Remote host closed the connection');
+				done();
+			} catch (e) { done(e); }
+		});
+		i.emit('close');
+	});
+
+	test('reject if remote host hasn\'t sent id within 5s', (done) => {
+		neigh.outbound({}, {});
+		const i = new EventEmitter();
+		const n = { interface: i };
+		FSM.__config.states.receiveRemoteID(n, () => {}, (err) => {
+			try {
+				expect(err.message).toEqual('Remote host has not sent its ID');
+				done();
+			} catch (e) { done(e); }
+		});
+		jest.runTimersToTime(5000);
 	});
 
 	test('destroy socket if fsm is left', () => {

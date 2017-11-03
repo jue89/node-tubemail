@@ -22,7 +22,8 @@
       "jest",
       "describe",
       "test",
-      "expect"
+      "expect",
+	  "beforeEach"
     ]
   },
   "jest": {

@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const tls = require('tls');
 const util = require('util');
 const x509 = require('x509');
-const FSM = require('./fsm.js');
+const FSM = require('./fsm.js').FSM;
 const neigh = require('./neigh.js');
 
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };
@@ -33,7 +33,7 @@ function Tubemail (opts) {
 	setRO(this, 'cert', opts.cert);
 	setRO(this, 'ca', opts.ca);
 	this.port = opts.port;
-	this.startDiscovery = opts.discovery;
+	this.discovery = opts.discovery;
 
 	// Create stores
 	setRO(this, 'knownIDs', []);
@@ -73,7 +73,7 @@ const fsmFactory = FSM({
 			});
 
 			// Kick off discovery and register callback for discovered peers
-			tm.startDiscovery(tm.port, tm.fingerPrint, (remote) => {
+			tm.discovery(tm.port, tm.fingerPrint, (remote) => {
 				neigh.outbound(tm, remote).on('state:sendLocalID', (n) => {
 					// If an outbound connection reached the point that we are sending
 					// our ID, the remote ID has been accepted -> store learned ID
@@ -102,7 +102,5 @@ const fsmFactory = FSM({
 module.exports = (opts) => new Promise((resolve, reject) => {
 	fsmFactory(new Tubemail(opts))
 		.on('destroy', (tubemail, err, state) => reject(err))
-		.on('state', (tubemail, newState) => {
-			if (newState === 'listening') resolve(tubemail);
-		});
+		.on('state:listening', (tubemail) => resolve(tubemail));
 });

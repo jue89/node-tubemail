@@ -1,3 +1,5 @@
+const EventEmitter = require('events');
+
 jest.mock('tls');
 const tls = require('tls');
 
@@ -6,6 +8,9 @@ const crypto = require('crypto');
 
 jest.mock('x509');
 const x509 = require('x509');
+
+jest.mock('../fsm.js');
+const FSM = require('../fsm.js');
 
 jest.mock('../neigh.js');
 const neigh = require('../neigh.js');
@@ -17,7 +22,7 @@ test('complain about missing key', () => {
 		cert: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
-	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
+	}).catch((e) => {
 		expect(e).toHaveProperty('message', 'key is missing');
 	});
 });
@@ -28,7 +33,7 @@ test('complain about key not being a Buffer', () => {
 		cert: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
-	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
+	}).catch((e) => {
 		expect(e).toHaveProperty('message', 'key must be a buffer');
 	});
 });
@@ -38,7 +43,7 @@ test('complain about missing cert', () => {
 		key: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
-	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
+	}).catch((e) => {
 		expect(e).toHaveProperty('message', 'cert is missing');
 	});
 });
@@ -49,7 +54,7 @@ test('complain about cert not being a Buffer', () => {
 		key: Buffer.alloc(0),
 		ca: Buffer.alloc(0),
 		discovery: () => {}
-	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
+	}).catch((e) => {
 		expect(e).toHaveProperty('message', 'cert must be a buffer');
 	});
 });
@@ -59,7 +64,7 @@ test('complain about missing ca', () => {
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
 		discovery: () => {}
-	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
+	}).catch((e) => {
 		expect(e).toHaveProperty('message', 'ca is missing');
 	});
 });
@@ -70,7 +75,7 @@ test('complain about ca not being a Buffer', () => {
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
 		discovery: () => {}
-	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
+	}).catch((e) => {
 		expect(e).toHaveProperty('message', 'ca must be a buffer');
 	});
 });
@@ -80,192 +85,204 @@ test('complain about missing discovery', () => {
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0)
-	}).then(() => Promise.reject(new Error('FAILED'))).catch((e) => {
+	}).catch((e) => {
 		expect(e).toHaveProperty('message', 'discovery is missing');
 	});
 });
 
-test('generate id', () => {
-	const id = Buffer.alloc(64, 'a');
-	crypto.__randomBytes.mockImplementation(() => id);
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		discovery: () => {}
-	}).then((realm) => {
-		expect(crypto.__randomBytes.mock.calls[0][0]).toEqual(id.length);
-		expect(realm.id).toEqual(id.toString('hex'));
-	});
-});
-
-test('create new server', () => {
-	const ca = Buffer.alloc(0);
-	const cert = Buffer.alloc(0);
-	const key = Buffer.alloc(0);
-	return tubemail({
-		ca: ca,
-		key: key,
-		cert: cert,
-		discovery: () => {}
-	}).then(() => {
-		expect(tls.createServer.mock.calls[0][0]).toMatchObject({
-			ca: [ca],
-			cert: cert,
-			key: key,
-			requestCert: true,
-			rejectUnauthorized: true
-		});
-	});
-});
-
-test('listen on specified port', () => {
+test('store specified port', () => {
 	const port = 1234;
-	return tubemail({
+	tubemail({
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
 		discovery: () => {},
 		port: port
-	}).then(() => {
-		expect(tls.__server.listen.mock.calls[0][0]).toEqual(port);
 	});
+	expect(FSM.__data.port).toEqual(port);
 });
 
-test('listen on 4816 by default', () => {
-	return tubemail({
+test('set port to 4816 by default', () => {
+	tubemail({
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
 		discovery: () => {}
-	}).then(() => {
-		expect(tls.__server.listen.mock.calls[0][0]).toEqual(4816);
 	});
+	expect(FSM.__data.port).toEqual(4816);
 });
 
 test('get fingerprint from given ca cert', () => {
 	const fingerPrint = 'AB:cd:ef:12';
 	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
 	const ca = Buffer.from('chucky');
-	return tubemail({
+	tubemail({
 		ca: ca,
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
 		discovery: () => {}
-	}).then((realm) => {
-		expect(realm.fingerPrint).toEqual(fingerPrint.replace(/:/g, '').toLowerCase());
-		expect(x509.parseCert.mock.calls[0][0]).toEqual(ca.toString());
+	});
+	expect(x509.parseCert.mock.calls[0][0]).toEqual(ca.toString());
+	expect(FSM.__data.fingerPrint).toEqual(fingerPrint.replace(/:/g, '').toLowerCase());
+});
+
+test('resolve once serber is listening', () => {
+	const fingerPrint = 'AB:cd:ef:12';
+	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
+	const tm = {
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		port: 4321,
+		discovery: () => {}
+	};
+	const q = tubemail(tm).then((realm) => {
+		expect(realm.ca).toBe(tm.ca);
+		expect(realm.key).toBe(tm.key);
+		expect(realm.cert).toBe(tm.cert);
+		expect(realm.port).toEqual(tm.port);
+		expect(realm.discovery).toBe(tm.discovery);
+		expect(realm.knownIDs).toBeInstanceOf(Array);
+		expect(realm.neigh).toEqual({});
+		expect(realm.fingerPrint).toEqual(fingerPrint.replace(/:/g, '').toLocaleLowerCase());
+	});
+	FSM.__fsm.emit('state:listening', FSM.__data);
+	return q;
+});
+
+test('generate id', (done) => {
+	// We need predictable randomness ;)
+	const id = Buffer.alloc(64, 'a');
+	crypto.__randomBytes.mockImplementationOnce(() => id);
+	const tm = {};
+	FSM.__config.states.generateLocalID(tm, (state) => {
+		try {
+			expect(state).toEqual('createServer');
+			expect(crypto.randomBytes.mock.calls[0][0]).toEqual(id.length);
+			expect(tm.id).toEqual(id.toString('hex'));
+			done();
+		} catch (e) { done(e); }
+	});
+});
+
+test('reject if collecting randomness for the id fails', (done) => {
+	const err = new Error('NSA don\'t like randomness');
+	crypto.randomBytes.mockImplementationOnce((bytes, cb) => cb(err));
+	FSM.__config.states.generateLocalID({}, () => {}, (reason) => {
+		try {
+			expect(reason).toBe(err);
+			done();
+		} catch (e) { done(e); }
+	});
+});
+
+test('create new server', (done) => {
+	const tm = {
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		port: 1234
+	};
+	FSM.__config.states.createServer(tm, (state) => {
+		try {
+			expect(state).toEqual('listening');
+			expect(tls.createServer.mock.calls[0][0]).toMatchObject({
+				ca: [tm.ca],
+				cert: tm.cert,
+				key: tm.key,
+				requestCert: true,
+				rejectUnauthorized: true
+			});
+			expect(tls.__server.listen.mock.calls[0][0]).toEqual(tm.port);
+			done();
+		} catch (e) { done(e); }
 	});
 });
 
 test('call discovery with port and fingerprint', () => {
-	const fingerPrint = 'ab:cd';
-	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
-	const port = 12345;
 	const discovery = jest.fn();
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		port: port,
-		discovery: discovery
-	}).then(() => {
-		expect(discovery.mock.calls[0][0]).toEqual(port);
-		expect(discovery.mock.calls[0][1]).toEqual(fingerPrint.replace(/:/g, '').toLowerCase());
-	});
+	const tm = {
+		port: 1234,
+		fingerPrint: 'abcd',
+		discovery: discovery,
+		socket: new EventEmitter()
+	};
+	FSM.__config.states.listening(tm);
+	expect(discovery.mock.calls[0][0]).toEqual(tm.port);
+	expect(discovery.mock.calls[0][1]).toEqual(tm.fingerPrint);
 });
 
 test('call factory if discovery discovered client', () => {
-	const ca = Buffer.alloc(0);
-	const key = Buffer.alloc(0);
-	const cert = Buffer.alloc(0);
-	const id = Buffer.alloc(64, 'a');
 	const discovery = jest.fn();
-	crypto.__randomBytes.mockImplementation(() => id);
-	return tubemail({
-		ca,
-		key,
-		cert,
-		discovery
-	}).then(() => {
-		const host = 'peni$';
-		const port = 69;
-		discovery.mock.calls[0][2]({ host, port });
-		expect(neigh.outbound.mock.calls[0][0]).toMatchObject({
-			ca,
-			key,
-			cert,
-			id: id.toString('hex')
-		});
-		expect(neigh.outbound.mock.calls[0][1]).toMatchObject({
-			host,
-			port
-		});
-	});
+	const tm = {
+		port: 1234,
+		fingerPrint: 'abcd',
+		discovery: discovery,
+		socket: new EventEmitter()
+	};
+	FSM.__config.states.listening(tm);
+	const peer = {
+		host: 'foo',
+		port: 12345
+	};
+	discovery.mock.calls[0][2](peer);
+	expect(neigh.outbound.mock.calls[0][0]).toBe(tm);
+	expect(neigh.outbound.mock.calls[0][1]).toBe(peer);
 });
 
 test('call factory for incoming connections', () => {
-	const ca = Buffer.alloc(0);
-	const key = Buffer.alloc(0);
-	const cert = Buffer.alloc(0);
-	const id = Buffer.alloc(64, 'a');
-	crypto.__randomBytes.mockImplementation(() => id);
-	return tubemail({
-		ca,
-		key,
-		cert,
+	const socket = new EventEmitter();
+	const tm = {
+		port: 1234,
+		fingerPrint: 'abcd',
+		socket: socket,
 		discovery: () => {}
-	}).then(() => {
-		const socket = {};
-		tls.__server.emit('secureConnection', socket);
-		expect(neigh.inbound.mock.calls[0][0]).toMatchObject({
-			ca,
-			key,
-			cert,
-			id: id.toString('hex')
-		});
-		expect(neigh.inbound.mock.calls[0][1]).toBe(socket);
-	});
+	};
+	FSM.__config.states.listening(tm);
+	const peer = {
+		host: 'foo',
+		port: 12345
+	};
+	socket.emit('secureConnection', peer);
+	expect(neigh.inbound.mock.calls[0][0]).toBe(tm);
+	expect(neigh.inbound.mock.calls[0][1]).toBe(peer);
 });
 
 test('add learned outbound id', () => {
-	const id = Buffer.from('abcd').toString('hex');
 	const discovery = jest.fn();
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		discovery: discovery
-	}).then((realm) => {
-		// Advertise discovery
-		discovery.mock.calls[0][2]({});
-		// Fake that we discovered a new neighbour and are about to send over our ID
-		neigh.__outbound.emit('state:sendLocalID', {id});
-		return realm;
-	}).then((realm) => {
-		expect(realm.knownIDs[0]).toEqual(id);
-	});
+	const tm = {
+		port: 1234,
+		fingerPrint: 'abcd',
+		discovery: discovery,
+		socket: new EventEmitter(),
+		knownIDs: []
+	};
+	FSM.__config.states.listening(tm);
+	discovery.mock.calls[0][2]({});
+	const n = { id: 'hot-neighbour' };
+	neigh.__outbound.emit('state:sendLocalID', n);
+	expect(tm.knownIDs[0]).toEqual(n.id);
 });
 
 test('add learned outbound neigh and raise event', (done) => {
-	const id = Buffer.from('abcd').toString('hex');
-	const n = {id};
 	const discovery = jest.fn();
-	return tubemail({
-		ca: Buffer.alloc(0),
-		key: Buffer.alloc(0),
-		cert: Buffer.alloc(0),
-		discovery: discovery
-	}).then((realm) => {
-		realm.on('newNeigh', (n) => {
+	const n = { id: 'hot-neighbour' };
+	const tm = {
+		port: 1234,
+		fingerPrint: 'abcd',
+		discovery: discovery,
+		socket: new EventEmitter(),
+		neigh: {},
+		emit: (e, x) => {
 			try {
-				expect(realm.neigh[id]).toBe(n);
+				expect(e).toEqual('newNeigh');
+				expect(x).toBe(n);
+				expect(tm.neigh[n.id]).toBe(n);
 				done();
 			} catch (e) { done(e); }
-		});
-		// Advertise discovery
-		discovery.mock.calls[0][2]({});
-		// Fake that we discovered a new neighbour and are about to send over our ID
-		neigh.__outbound.emit('state:connected', n);
-	});
+		}
+	};
+	FSM.__config.states.listening(tm);
+	discovery.mock.calls[0][2]({});
+	neigh.__outbound.emit('state:connected', n);
 });

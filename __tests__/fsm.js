@@ -1,4 +1,4 @@
-const FSM = require('../fsm.js');
+const FSM = require('../fsm.js').FSM;
 
 test('run first state', (done) => {
 	FSM({

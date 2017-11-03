@@ -1,5 +1,5 @@
 const tls = require('tls');
-const FSM = require('./fsm.js');
+const FSM = require('./fsm.js').FSM;
 const S2B = require('./stream2block.js');
 
 const EMJ = Buffer.from('🛰');

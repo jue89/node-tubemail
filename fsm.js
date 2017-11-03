@@ -51,4 +51,4 @@ FSM.prototype.enterState = function (newState) {
 	});
 };
 
-module.exports = (config) => (data) => new FSM(config, data);
+module.exports.FSM = (config) => (data) => new FSM(config, data);

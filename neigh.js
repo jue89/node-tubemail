@@ -12,6 +12,69 @@ function Neigh () {
 }
 util.inherits(Neigh, EventEmitter);
 
+const connect = (opts) => (n, state, destroy) => {
+	set.hidden(n, 'socket', tls.connect({
+		host: opts.remote.host,
+		port: opts.remote.port,
+		ca: [opts.local.ca],
+		key: opts.local.key,
+		cert: opts.local.cert,
+		checkServerIdentity: () => undefined
+	}));
+	state(opts.state);
+};
+
+const checkAuth = (opts) => (n, state, destroy) => {
+	n.socket.on(opts.connectEvent, () => {
+		// Make sure the connection is authorized
+		if (!n.socket.authorized) {
+			destroy(new Error(n.socket.authorizationError));
+		} else {
+			set.hidden(n, 'interface', new S2B(n.socket));
+			state(opts.state);
+		}
+	}).on('error', (err) => destroy(err));
+};
+
+const getSocketInfo = (opts) => (n, state, destroy) => {
+	set.readonly(n, 'host', n.socket.remoteAddress);
+	set.readonly(n, 'port', n.socket.remotePort);
+	set.readonly(n, 'cert', n.socket.getPeerCertificate());
+	state(opts.state);
+};
+
+const receiveRemoteID = (opts) => (n, state, destroy) => {
+	n.interface.on('data', (x) => {
+		// Check if welcome message is complete
+		if (x.length !== EMJ.length + 64) return destroy(new Error('Incomplete welcome message'));
+		if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return destroy(new Error('Magic missing'));
+
+		// Extract ID and check it if we should keep the connection
+		const remoteID = x.slice(EMJ.length).toString('hex');
+		if (opts.local.id < remoteID) return destroy(new Error('Remote ID higher than ours'));
+		if (opts.local.id === remoteID) return destroy(new Error('We connected ourselfes'));
+		set.readonly(n, 'id', remoteID);
+
+		// Check if we already know the other side
+		if (opts.local.knownIDs.indexOf(remoteID) !== -1) return destroy(new Error('Remote ID is already connected'));
+
+		state(opts.state);
+	}).on('close', () => destroy(new Error('Remote host closed the connection')));
+	setTimeout(() => destroy(new Error('Remote host has not sent its ID')), 5000);
+};
+
+const sendLocalID = (opts) => (n, state, destroy) => {
+	n.interface.send(Buffer.concat([EMJ, Buffer.from(opts.local.id, 'hex')]), () => state(opts.state));
+};
+
+const connected = (opts) => (n, state, destroy) => {
+	n.interface.on('data', (data) => {
+		n.emit('message', data);
+	}).on('close', () => {
+		destroy(new Error('Connection closed'));
+	});
+};
+
 const outbound = (local, remote) => FSM({
 	onLeave: (n) => {
 		if (n.socket) {
@@ -28,63 +91,12 @@ const outbound = (local, remote) => FSM({
 	},
 	firstState: 'connect',
 	states: {
-		connect: (n, state, destroy) => {
-			set.hidden(n, 'socket', tls.connect({
-				host: remote.host,
-				port: remote.port,
-				ca: [local.ca],
-				key: local.key,
-				cert: local.cert,
-				checkServerIdentity: () => undefined
-			}));
-			state('checkAuth');
-		},
-		checkAuth: (n, state, destroy) => {
-			n.socket.on('secureConnect', () => {
-				// Make sure the connection is authorized
-				if (!n.socket.authorized) {
-					destroy(new Error(n.socket.authorizationError));
-				} else {
-					set.hidden(n, 'interface', new S2B(n.socket));
-					state('getSocketInfo');
-				}
-			}).on('error', (err) => destroy(err));
-		},
-		getSocketInfo: (n, state, destroy) => {
-			set.readonly(n, 'host', n.socket.remoteAddress);
-			set.readonly(n, 'port', n.socket.remotePort);
-			set.readonly(n, 'cert', n.socket.getPeerCertificate());
-			state('receiveRemoteID');
-		},
-		receiveRemoteID: (n, state, destroy) => {
-			n.interface.on('data', (x) => {
-				// Check if welcome message is complete
-				if (x.length !== EMJ.length + 64) return destroy(new Error('Incomplete welcome message'));
-				if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return destroy(new Error('Magic missing'));
-
-				// Extract ID and check it if we should keep the connection
-				const remoteID = x.slice(EMJ.length).toString('hex');
-				if (local.id < remoteID) return destroy(new Error('Remote ID higher than ours'));
-				if (local.id === remoteID) return destroy(new Error('We connected ourselfes'));
-				set.readonly(n, 'id', remoteID);
-
-				// Check if we already know the other side
-				if (local.knownIDs.indexOf(remoteID) !== -1) return destroy(new Error('Remote ID is already connected'));
-
-				state('sendLocalID');
-			}).on('close', () => destroy(new Error('Remote host closed the connection')));
-			setTimeout(() => destroy(new Error('Remote host has not sent its ID')), 5000);
-		},
-		sendLocalID: (n, state, destroy) => {
-			n.interface.send(Buffer.concat([EMJ, Buffer.from(local.id, 'hex')]), () => state('connected'));
-		},
-		connected: (n, state, destroy) => {
-			n.interface.on('data', (data) => {
-				n.emit('message', data);
-			}).on('close', () => {
-				destroy(new Error('Connection closed'));
-			});
-		}
+		connect: connect({state: 'checkAuth', remote, local}),
+		checkAuth: checkAuth({state: 'getSocketInfo', connectEvent: 'secureConnect'}),
+		getSocketInfo: getSocketInfo({state: 'receiveRemoteID'}),
+		receiveRemoteID: receiveRemoteID({state: 'sendLocalID', local}),
+		sendLocalID: sendLocalID({state: 'connected', local}),
+		connected: connected({})
 	}
 })(new Neigh());
 

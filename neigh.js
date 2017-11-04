@@ -20,20 +20,20 @@ const connect = (opts) => (n, state, destroy) => {
 		key: opts.local.key,
 		cert: opts.local.cert,
 		checkServerIdentity: () => undefined
+	}).on('secureConnect', () => {
+		state(opts.state);
+	}).on('error', (err) => {
+		destroy(err);
 	}));
-	state(opts.state);
 };
 
 const checkAuth = (opts) => (n, state, destroy) => {
-	n.socket.on(opts.connectEvent, () => {
-		// Make sure the connection is authorized
-		if (!n.socket.authorized) {
-			destroy(new Error(n.socket.authorizationError));
-		} else {
-			set.hidden(n, 'interface', new S2B(n.socket));
-			state(opts.state);
-		}
-	}).on('error', (err) => destroy(err));
+	if (n.socket.authorized) {
+		set.hidden(n, 'interface', new S2B(n.socket));
+		state(opts.state);
+	} else {
+		destroy(new Error(n.socket.authorizationError));
+	}
 };
 
 const getSocketInfo = (opts) => (n, state, destroy) => {
@@ -92,7 +92,7 @@ const outbound = (local, remote) => FSM({
 	firstState: 'connect',
 	states: {
 		connect: connect({state: 'checkAuth', remote, local}),
-		checkAuth: checkAuth({state: 'getSocketInfo', connectEvent: 'secureConnect'}),
+		checkAuth: checkAuth({state: 'getSocketInfo'}),
 		getSocketInfo: getSocketInfo({state: 'receiveRemoteID'}),
 		receiveRemoteID: receiveRemoteID({state: 'sendLocalID', local}),
 		sendLocalID: sendLocalID({state: 'connected', local}),

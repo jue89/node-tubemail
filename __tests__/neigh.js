@@ -41,27 +41,13 @@ describe('outbound factory', () => {
 				done();
 			} catch (e) { done(e); }
 		});
-	});
-
-	test('check authorisation', (done) => {
-		neigh.outbound({}, {});
-		FSM.__data.socket = new EventEmitter();
-		FSM.__data.socket.authorized = true;
-		FSM.__config.states.checkAuth(FSM.__data, (state) => {
-			try {
-				expect(state).toEqual('getSocketInfo');
-				expect(FSM.__data.interface).toBeInstanceOf(S2B);
-				done();
-			} catch (e) { done(e); }
-		});
 		FSM.__data.socket.emit('secureConnect');
 	});
 
 	test('reject if connection attempt failed', (done) => {
 		neigh.outbound({}, {});
-		FSM.__data.socket = new EventEmitter();
 		const err = new Error('Mimimi');
-		FSM.__config.states.checkAuth(FSM.__data, () => {}, (e) => {
+		FSM.__config.states.connect(FSM.__data, () => {}, (e) => {
 			try {
 				expect(e).toBe(err);
 				done();
@@ -70,19 +56,33 @@ describe('outbound factory', () => {
 		FSM.__data.socket.emit('error', err);
 	});
 
+	test('check authorisation', (done) => {
+		neigh.outbound({}, {});
+		FSM.__data.socket = {
+			authorized: true
+		};
+		FSM.__config.states.checkAuth(FSM.__data, (state) => {
+			try {
+				expect(state).toEqual('getSocketInfo');
+				expect(FSM.__data.interface).toBeInstanceOf(S2B);
+				done();
+			} catch (e) { done(e); }
+		});
+	});
+
 	test('reject if connection is not authorised', (done) => {
 		neigh.outbound({}, {});
-		FSM.__data.socket = new EventEmitter();
 		const reason = 'Ohne Tasche keine Competition!';
+		FSM.__data.socket = {
+			authorized: false,
+			authorizationError: reason
+		};
 		FSM.__config.states.checkAuth(FSM.__data, () => {}, (err) => {
 			try {
 				expect(err.message).toEqual(reason);
 				done();
 			} catch (e) { done(e); }
 		});
-		FSM.__data.socket.authorized = false;
-		FSM.__data.socket.authorizationError = reason;
-		FSM.__data.socket.emit('secureConnect');
 	});
 
 	test('get remote cert, host and port', (done) => {

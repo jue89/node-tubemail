@@ -13,6 +13,10 @@ function Neigh (socket) {
 }
 util.inherits(Neigh, EventEmitter);
 
+Neigh.prototype.send = function (msg) {
+	this.interface.send(msg);
+};
+
 const connect = (opts) => (n, state, destroy) => {
 	set.hidden(n, 'socket', tls.connect({
 		host: opts.remote.host,

@@ -375,4 +375,14 @@ describe('inbound factory', () => {
 			idRemote
 		]));
 	});
+
+	test('send message', () => {
+		const msg = Buffer.alloc(0);
+		neigh.inbound({}, {});
+		FSM.__data.interface = {
+			send: jest.fn()
+		};
+		FSM.__data.send(msg);
+		expect(FSM.__data.interface.send.mock.calls[0][0]).toBe(msg);
+	});
 });

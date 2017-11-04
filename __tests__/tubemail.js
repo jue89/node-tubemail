@@ -310,3 +310,30 @@ test('add learned inbound neigh and raise event', (done) => {
 	socket.emit('secureConnection', {});
 	neigh.__inbound.emit('state:connected', n);
 });
+
+test('send data to all neighs', (done) => {
+	const neighs = ['a', 'b'].map((id) => ({
+		send: jest.fn()
+	}));
+	const msg = Buffer.alloc(0);
+	const tm = {
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		port: 4321,
+		discovery: () => {}
+	};
+	tubemail(tm).then((realm) => {
+		realm.send(msg);
+		try {
+			neighs.forEach((n) => {
+				expect(n.send.mock.calls[0][0]).toBe(msg);
+			});
+			done();
+		} catch (e) {
+			done(e);
+		}
+	});
+	FSM.__data.neighs = neighs;
+	FSM.__fsm.emit('state:listening', FSM.__data);
+});

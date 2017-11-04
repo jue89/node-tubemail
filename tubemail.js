@@ -40,6 +40,12 @@ function Tubemail (opts) {
 
 util.inherits(Tubemail, EventEmitter);
 
+Tubemail.prototype.send = function (msg) {
+	for (let n in this.neighs) {
+		this.neighs[n].send(msg);
+	}
+};
+
 const fsmFactory = FSM({
 	firstState: 'generateLocalID',
 	states: {

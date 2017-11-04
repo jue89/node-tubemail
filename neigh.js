@@ -43,28 +43,34 @@ const getSocketInfo = (opts) => (n, state, destroy) => {
 	state(opts.state);
 };
 
+const check = (cond, msg) => { if (!cond) throw new Error(msg); };
 const receiveRemoteID = (opts) => (n, state, destroy) => {
 	n.interface.on('data', (x) => {
-		// Check if welcome message is complete
-		if (x.length !== EMJ.length + 64) return destroy(new Error('Incomplete welcome message'));
-		if (Buffer.compare(EMJ, x.slice(0, EMJ.length)) !== 0) return destroy(new Error('Magic missing'));
+		try {
+			// Check if welcome message is complete
+			check(x.length === EMJ.length + 64, 'Incomplete welcome message');
+			check(Buffer.compare(EMJ, x.slice(0, EMJ.length)) === 0, 'Magic missing');
 
-		// Extract ID and check it if we should keep the connection
-		const remoteID = x.slice(EMJ.length).toString('hex');
-		if (opts.local.id < remoteID) return destroy(new Error('Remote ID higher than ours'));
-		if (opts.local.id === remoteID) return destroy(new Error('We connected ourselfes'));
-		set.readonly(n, 'id', remoteID);
+			// Extract ID and check it if we should keep the connection
+			set.hidden(n, '_id', x.slice(EMJ.length));
+			set.readonly(n, 'id', n._id.toString('hex'));
+			const cmp = Buffer.compare(opts.local._id, n._id);
+			check(cmp !== 0, 'We connected ourselfes');
+			check(cmp > 0, 'Remote ID higher than ours');
 
-		// Check if we already know the other side
-		if (opts.local.knownIDs.indexOf(remoteID) !== -1) return destroy(new Error('Remote ID is already connected'));
+			// Check if we already know the other side
+			check(opts.local.knownIDs.indexOf(n.id) === -1, 'Remote ID is already connected');
 
-		state(opts.state);
+			state(opts.state);
+		} catch (e) {
+			destroy(e);
+		}
 	}).on('close', () => destroy(new Error('Remote host closed the connection')));
 	setTimeout(() => destroy(new Error('Remote host has not sent its ID')), 5000);
 };
 
 const sendLocalID = (opts) => (n, state, destroy) => {
-	n.interface.send(Buffer.concat([EMJ, Buffer.from(opts.local.id, 'hex')]));
+	n.interface.send(Buffer.concat([EMJ, opts.local._id]));
 	state(opts.state);
 };
 

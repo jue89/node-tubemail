@@ -46,6 +46,7 @@ const fsmFactory = FSM({
 		generateLocalID: (tm, state, destroy) => {
 			crypto.randomBytes(64, (err, id) => {
 				if (err) return destroy(err);
+				set.hidden(tm, '_id', id);
 				set.readonly(tm, 'id', id.toString('hex'));
 				state('createServer');
 			});

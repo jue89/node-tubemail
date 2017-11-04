@@ -126,7 +126,7 @@ test('get fingerprint from given ca cert', () => {
 	expect(FSM.__data.fingerPrint).toEqual(fingerPrint.replace(/:/g, '').toLowerCase());
 });
 
-test('resolve once serber is listening', () => {
+test('resolve once server is listening', () => {
 	const fingerPrint = 'AB:cd:ef:12';
 	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));
 	const tm = {
@@ -159,6 +159,7 @@ test('generate id', (done) => {
 		try {
 			expect(state).toEqual('createServer');
 			expect(crypto.randomBytes.mock.calls[0][0]).toEqual(id.length);
+			expect(tm._id).toBe(id);
 			expect(tm.id).toEqual(id.toString('hex'));
 			done();
 		} catch (e) { done(e); }

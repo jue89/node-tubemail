@@ -17,11 +17,9 @@ beforeEach(() => jest.clearAllTimers());
 describe('outbound factory', () => {
 	test('connect to discovered host', (done) => {
 		const local = {
-			id: Buffer.alloc(64, 'z').toString('hex'),
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			knownIDs: []
+			cert: Buffer.alloc(0)
 		};
 		const remote = {
 			host: 'peni$',
@@ -136,7 +134,8 @@ describe('outbound factory', () => {
 	});
 
 	test('reject if remote id is higher than ours', (done) => {
-		neigh.outbound({ id: Buffer.alloc(64, 'a').toString('hex') }, {});
+		const id = Buffer.alloc(64, 'a');
+		neigh.outbound({ _id: id, id: id.toString('hex') }, {});
 		const i = new EventEmitter();
 		const n = { interface: i };
 		FSM.__config.states.receiveRemoteID(n, () => {}, (err) => {
@@ -152,7 +151,8 @@ describe('outbound factory', () => {
 	});
 
 	test('reject if remote id is equal', (done) => {
-		neigh.outbound({ id: Buffer.alloc(64, 'a').toString('hex') }, {});
+		const id = Buffer.alloc(64, 'a');
+		neigh.outbound({ _id: id, id: id.toString('hex') }, {});
 		const i = new EventEmitter();
 		const n = { interface: i };
 		FSM.__config.states.receiveRemoteID(n, () => {}, (err) => {
@@ -163,15 +163,17 @@ describe('outbound factory', () => {
 		});
 		i.emit('data', Buffer.concat([
 			Buffer.from('🛰'),
-			Buffer.alloc(64, 'a')
+			id
 		]));
 	});
 
 	test('reject if remote id is known', (done) => {
-		const id = Buffer.alloc(64, 'a');
+		const idRemote = Buffer.alloc(64, 'a');
+		const idLocal = Buffer.alloc(64, 'b');
 		neigh.outbound({
-			id: Buffer.alloc(64, 'b').toString('hex'),
-			knownIDs: [ id.toString('hex') ]
+			_id: idLocal,
+			id: idLocal.toString('hex'),
+			knownIDs: [ idRemote.toString('hex') ]
 		}, {});
 		const i = new EventEmitter();
 		const n = { interface: i };
@@ -183,7 +185,7 @@ describe('outbound factory', () => {
 		});
 		i.emit('data', Buffer.concat([
 			Buffer.from('🛰'),
-			id
+			idRemote
 		]));
 	});
 
@@ -224,9 +226,11 @@ describe('outbound factory', () => {
 	});
 
 	test('go to next state if we accepted the remote host', (done) => {
-		const id = Buffer.alloc(64, 'a');
+		const idLocal = Buffer.alloc(64, 'b');
+		const idRemote = Buffer.alloc(64, 'a');
 		neigh.outbound({
-			id: Buffer.alloc(64, 'b').toString('hex'),
+			_id: idLocal,
+			id: idLocal.toString('hex'),
 			knownIDs: []
 		}, {});
 		const i = new EventEmitter();
@@ -239,7 +243,7 @@ describe('outbound factory', () => {
 		});
 		i.emit('data', Buffer.concat([
 			Buffer.from('🛰'),
-			id
+			idRemote
 		]));
 	});
 
@@ -247,7 +251,7 @@ describe('outbound factory', () => {
 		const EMJ = Buffer.from('🛰');
 		const localID = Buffer.alloc(64, 'z');
 		const localWelcome = Buffer.concat([ EMJ, localID ]);
-		neigh.outbound({ id: localID.toString('hex') }, {});
+		neigh.outbound({ _id: localID, id: localID.toString('hex') }, {});
 		const i = { send: jest.fn() };
 		FSM.__config.states.sendLocalID({ interface: i }, (state) => {
 			try {

@@ -64,7 +64,8 @@ const receiveRemoteID = (opts) => (n, state, destroy) => {
 };
 
 const sendLocalID = (opts) => (n, state, destroy) => {
-	n.interface.send(Buffer.concat([EMJ, Buffer.from(opts.local.id, 'hex')]), () => state(opts.state));
+	n.interface.send(Buffer.concat([EMJ, Buffer.from(opts.local.id, 'hex')]));
+	state(opts.state);
 };
 
 const connected = (opts) => (n, state, destroy) => {

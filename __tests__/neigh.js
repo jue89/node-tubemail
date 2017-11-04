@@ -248,7 +248,7 @@ describe('outbound factory', () => {
 		const localID = Buffer.alloc(64, 'z');
 		const localWelcome = Buffer.concat([ EMJ, localID ]);
 		neigh.outbound({ id: localID.toString('hex') }, {});
-		const i = { send: jest.fn((d, c) => c()) };
+		const i = { send: jest.fn() };
 		FSM.__config.states.sendLocalID({ interface: i }, (state) => {
 			try {
 				expect(i.send.mock.calls[0][0].toString('hex')).toEqual(localWelcome.toString('hex'));

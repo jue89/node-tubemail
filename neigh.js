@@ -7,8 +7,9 @@ const S2B = require('./stream2block.js');
 
 const EMJ = Buffer.from('🛰');
 
-function Neigh () {
+function Neigh (socket) {
 	EventEmitter.call(this);
+	if (socket) set.hidden(this, 'socket', socket);
 }
 util.inherits(Neigh, EventEmitter);
 
@@ -51,12 +52,18 @@ const receiveRemoteID = (opts) => (n, state, destroy) => {
 			check(x.length === EMJ.length + 64, 'Incomplete welcome message');
 			check(Buffer.compare(EMJ, x.slice(0, EMJ.length)) === 0, 'Magic missing');
 
-			// Extract ID and check it if we should keep the connection
+			// Extract ID
 			set.hidden(n, '_id', x.slice(EMJ.length));
 			set.readonly(n, 'id', n._id.toString('hex'));
+
+			// Check it if we should keep the connection
 			const cmp = Buffer.compare(opts.local._id, n._id);
 			check(cmp !== 0, 'We connected ourselfes');
-			check(cmp > 0, 'Remote ID higher than ours');
+			if (opts.inbound) {
+				check(cmp < 0, 'Remote ID lower than ours');
+			} else {
+				check(cmp > 0, 'Remote ID higher than ours');
+			}
 
 			// Check if we already know the other side
 			check(opts.local.knownIDs.indexOf(n.id) === -1, 'Remote ID is already connected');
@@ -82,36 +89,47 @@ const connected = (opts) => (n, state, destroy) => {
 	});
 };
 
+const onLeave = (n) => {
+	if (n.socket) {
+		n.socket.removeAllListeners('secureConnect');
+		n.socket.removeAllListeners('error');
+	}
+	if (n.interface) {
+		n.interface.removeAllListeners('data');
+		n.interface.removeAllListeners('close');
+	}
+};
+
+const onDestroy = (n) => {
+	if (n.socket && !n.socket.destroyed) n.socket.destroy();
+};
+
 const outbound = (local, remote) => FSM({
-	onLeave: (n) => {
-		if (n.socket) {
-			n.socket.removeAllListeners('secureConnect');
-			n.socket.removeAllListeners('error');
-		}
-		if (n.interface) {
-			n.interface.removeAllListeners('data');
-			n.interface.removeAllListeners('close');
-		}
-	},
-	onDestroy: (n) => {
-		if (n.socket && !n.socket.destroyed) n.socket.destroy();
-	},
+	onLeave,
+	onDestroy,
 	firstState: 'connect',
 	states: {
 		connect: connect({state: 'checkAuth', remote, local}),
 		checkAuth: checkAuth({state: 'getSocketInfo'}),
 		getSocketInfo: getSocketInfo({state: 'receiveRemoteID'}),
-		receiveRemoteID: receiveRemoteID({state: 'sendLocalID', local}),
+		receiveRemoteID: receiveRemoteID({state: 'sendLocalID', local, inbound: false}),
 		sendLocalID: sendLocalID({state: 'connected', local}),
 		connected: connected({})
 	}
 })(new Neigh());
 
-// Check authorized
-// Get data
-// Send Magic + ID
-// Receive remote Magic + ID
-const inbound = () => {};
+const inbound = (local, socket) => FSM({
+	onLeave,
+	onDestroy,
+	firstState: 'checkAuth',
+	states: {
+		checkAuth: checkAuth({state: 'getSocketInfo'}),
+		getSocketInfo: getSocketInfo({state: 'sendLocalID'}),
+		sendLocalID: sendLocalID({state: 'receiveRemoteID', local}),
+		receiveRemoteID: receiveRemoteID({state: 'connected', local, inbound: true}),
+		connected: connected({})
+	}
+})(new Neigh(socket));
 
 module.exports = {
 	outbound,

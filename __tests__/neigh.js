@@ -288,3 +288,91 @@ describe('outbound factory', () => {
 		FSM.__data.interface.emit('close');
 	});
 });
+
+describe('inbound factory', () => {
+	test('store socket', () => {
+		const socket = {};
+		neigh.inbound({}, socket);
+		expect(FSM.__data.socket).toBe(socket);
+	});
+
+	test('check authorisation', (done) => {
+		const socket = {
+			authorized: true
+		};
+		neigh.inbound({}, socket);
+		FSM.__config.states.checkAuth(FSM.__data, (state) => {
+			try {
+				expect(state).toEqual('getSocketInfo');
+				expect(FSM.__data.interface).toBeInstanceOf(S2B);
+				done();
+			} catch (e) { done(e); }
+		});
+	});
+
+	test('send local ID', (done) => {
+		const id = Buffer.alloc(64, 'z');
+		neigh.inbound({ _id: id, id: id.toString('hex') }, {});
+		const i = { send: jest.fn() };
+		FSM.__config.states.sendLocalID({ interface: i }, (state) => {
+			try {
+				expect(state).toEqual('receiveRemoteID');
+				done();
+			} catch (e) { done(e); }
+		});
+	});
+
+	test('get remote cert, host and port', (done) => {
+		const socket = {
+			remoteAddress: '1.2.3.4',
+			remotePort: 9876,
+			getPeerCertificate: () => ({ test: 'true' })
+		};
+		neigh.inbound({}, socket);
+		FSM.__config.states.getSocketInfo(FSM.__data, (state) => {
+			try {
+				expect(state).toEqual('sendLocalID');
+				done();
+			} catch (e) { done(e); }
+		});
+	});
+
+	test('reject if remote id is lower than ours', (done) => {
+		const id = Buffer.alloc(64, 'b');
+		neigh.inbound({ _id: id, id: id.toString('hex') }, {});
+		const i = new EventEmitter();
+		const n = { interface: i };
+		FSM.__config.states.receiveRemoteID(n, () => {}, (err) => {
+			try {
+				expect(err.message).toEqual('Remote ID lower than ours');
+				done();
+			} catch (e) { done(e); }
+		});
+		i.emit('data', Buffer.concat([
+			Buffer.from('🛰'),
+			Buffer.alloc(64, 'a')
+		]));
+	});
+
+	test('go to next state if we accepted the remote host', (done) => {
+		const idLocal = Buffer.alloc(64, 'a');
+		const idRemote = Buffer.alloc(64, 'b');
+		neigh.inbound({
+			_id: idLocal,
+			id: idLocal.toString('hex'),
+			knownIDs: []
+		}, {});
+		const i = new EventEmitter();
+		const n = { interface: i };
+		FSM.__config.states.receiveRemoteID(n, (state) => {
+			try {
+				expect(state).toEqual('connected');
+				done();
+			} catch (e) { done(e); }
+		});
+		i.emit('data', Buffer.concat([
+			Buffer.from('🛰'),
+			idRemote
+		]));
+	});
+});

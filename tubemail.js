@@ -65,7 +65,15 @@ const fsmFactory = FSM({
 		listening: (tm, state, destroy) => {
 			// React to incoming connects
 			tm.socket.on('secureConnection', (socket) => {
-				neigh.inbound(tm, socket);
+				neigh.inbound(tm, socket).on('state:connected', (n) => {
+					// Store handle if the connection has been established
+					tm.knownIDs.push(n.id);
+					tm.neigh[n.id] = n;
+					tm.emit('newNeigh', n);
+				}).on('destroy', (n) => {
+					// TODO: Remove known ID
+					// TODO: Remove events
+				});
 			});
 
 			// Kick off discovery and register callback for discovered peers

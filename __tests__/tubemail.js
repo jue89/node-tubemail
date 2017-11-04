@@ -231,24 +231,6 @@ test('call factory if discovery discovered client', () => {
 	expect(neigh.outbound.mock.calls[0][1]).toBe(peer);
 });
 
-test('call factory for incoming connections', () => {
-	const socket = new EventEmitter();
-	const tm = {
-		port: 1234,
-		fingerPrint: 'abcd',
-		socket: socket,
-		discovery: () => {}
-	};
-	FSM.__config.states.listening(tm);
-	const peer = {
-		host: 'foo',
-		port: 12345
-	};
-	socket.emit('secureConnection', peer);
-	expect(neigh.inbound.mock.calls[0][0]).toBe(tm);
-	expect(neigh.inbound.mock.calls[0][1]).toBe(peer);
-});
-
 test('add learned outbound id', () => {
 	const discovery = jest.fn();
 	const tm = {
@@ -286,4 +268,45 @@ test('add learned outbound neigh and raise event', (done) => {
 	FSM.__config.states.listening(tm);
 	discovery.mock.calls[0][2]({});
 	neigh.__outbound.emit('state:connected', n);
+});
+
+test('call factory for incoming connections', () => {
+	const socket = new EventEmitter();
+	const tm = {
+		port: 1234,
+		fingerPrint: 'abcd',
+		socket: socket,
+		discovery: () => {}
+	};
+	FSM.__config.states.listening(tm);
+	const peer = {
+		host: 'foo',
+		port: 12345
+	};
+	socket.emit('secureConnection', peer);
+	expect(neigh.inbound.mock.calls[0][0]).toBe(tm);
+	expect(neigh.inbound.mock.calls[0][1]).toBe(peer);
+});
+
+test('add learned inbound neigh and raise event', (done) => {
+	const socket = new EventEmitter();
+	const n = { id: 'hot-neighbour' };
+	const tm = {
+		socket,
+		discovery: () => {},
+		knownIDs: [],
+		neigh: {},
+		emit: (e, x) => {
+			try {
+				expect(e).toEqual('newNeigh');
+				expect(x).toBe(n);
+				expect(tm.knownIDs[0]).toEqual(n.id);
+				expect(tm.neigh[n.id]).toBe(n);
+				done();
+			} catch (e) { done(e); }
+		}
+	};
+	FSM.__config.states.listening(tm);
+	socket.emit('secureConnection', {});
+	neigh.__inbound.emit('state:connected', n);
 });

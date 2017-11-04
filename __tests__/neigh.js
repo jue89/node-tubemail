@@ -243,4 +243,30 @@ describe('outbound factory', () => {
 			} catch (e) { done(e); }
 		});
 	});
+
+	test('forward data events', (done) => {
+		neigh.outbound({}, {});
+		FSM.__data.interface = new EventEmitter();
+		FSM.__config.states.connected(FSM.__data);
+		const data = Buffer.alloc(0);
+		FSM.__data.on('message', (d) => {
+			try {
+				expect(d).toBe(data);
+				done();
+			} catch (e) { done(e); }
+		});
+		FSM.__data.interface.emit('data', data);
+	});
+
+	test('destroy on close event', (done) => {
+		neigh.outbound({}, {});
+		FSM.__data.interface = new EventEmitter();
+		FSM.__config.states.connected(FSM.__data, () => {}, (err) => {
+			try {
+				expect(err.message).toEqual('Connection closed');
+				done();
+			} catch (e) { done(e); }
+		});
+		FSM.__data.interface.emit('close');
+	});
 });

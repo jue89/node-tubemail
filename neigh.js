@@ -1,11 +1,16 @@
+const EventEmitter = require('events');
 const tls = require('tls');
+const util = require('util');
 const set = require('./set.js');
 const FSM = require('./fsm.js').FSM;
 const S2B = require('./stream2block.js');
 
 const EMJ = Buffer.from('🛰');
 
-function Neigh () {}
+function Neigh () {
+	EventEmitter.call(this);
+}
+util.inherits(Neigh, EventEmitter);
 
 const outbound = (local, remote) => FSM({
 	onLeave: (n) => {
@@ -70,13 +75,17 @@ const outbound = (local, remote) => FSM({
 			n.interface.send(Buffer.concat([EMJ, Buffer.from(local.id, 'hex')]), () => state('connected'));
 		},
 		connected: (n, state, destroy) => {
-			// TODO: Data event
-			// TODO: Close event
+			n.interface.on('data', (data) => {
+				n.emit('message', data);
+			}).on('close', () => {
+				destroy(new Error('Connection closed'));
+			});
 		}
 	}
 })(new Neigh());
 
 // Check authorized
+// Get data
 // Send Magic + ID
 // Receive remote Magic + ID
 const inbound = () => {};

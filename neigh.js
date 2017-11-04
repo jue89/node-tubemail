@@ -1,20 +1,11 @@
 const tls = require('tls');
+const set = require('./set.js');
 const FSM = require('./fsm.js').FSM;
 const S2B = require('./stream2block.js');
 
 const EMJ = Buffer.from('🛰');
 
-const setRO = (obj, key, value) => Object.defineProperty(obj, key, {
-	value: value,
-	writable: false,
-	enumerable: true,
-	configurable: false
-});
-
-function Neigh (host, port) {
-	setRO(this, 'host', host);
-	setRO(this, 'port', port);
-}
+function Neigh () {}
 
 const outbound = (local, remote) => FSM({
 	onLeave: (n) => {
@@ -33,7 +24,7 @@ const outbound = (local, remote) => FSM({
 	firstState: 'connect',
 	states: {
 		connect: (n, state, destroy) => {
-			n.socket = tls.connect({
+			set.hidden(n, 'socket', tls.connect({
 				host: remote.host,
 				port: remote.port,
 				ca: [local.ca],
@@ -45,10 +36,16 @@ const outbound = (local, remote) => FSM({
 				if (!n.socket.authorized) {
 					destroy(new Error(n.socket.authorizationError));
 				} else {
-					n.interface = new S2B(n.socket);
-					state('receiveRemoteID');
+					set.hidden(n, 'interface', new S2B(n.socket));
+					state('getSocketInfo');
 				}
-			}).on('error', (err) => destroy(err));
+			}).on('error', (err) => destroy(err)));
+		},
+		getSocketInfo: (n, state, destroy) => {
+			set.readonly(n, 'host', n.socket.remoteAddress);
+			set.readonly(n, 'port', n.socket.remotePort);
+			set.readonly(n, 'cert', n.socket.getPeerCertificate());
+			state('receiveRemoteID');
 		},
 		receiveRemoteID: (n, state, destroy) => {
 			n.interface.on('data', (x) => {
@@ -60,7 +57,7 @@ const outbound = (local, remote) => FSM({
 				const remoteID = x.slice(EMJ.length).toString('hex');
 				if (local.id < remoteID) return destroy(new Error('Remote ID higher than ours'));
 				if (local.id === remoteID) return destroy(new Error('We connected ourselfes'));
-				setRO(n, 'id', remoteID);
+				set.readonly(n, 'id', remoteID);
 
 				// Check if we already know the other side
 				if (local.knownIDs.indexOf(remoteID) !== -1) return destroy(new Error('Remote ID is already connected'));
@@ -77,7 +74,7 @@ const outbound = (local, remote) => FSM({
 			// TODO: Close event
 		}
 	}
-})(new Neigh(remote.host, remote.port));
+})(new Neigh());
 
 // Check authorized
 // Send Magic + ID

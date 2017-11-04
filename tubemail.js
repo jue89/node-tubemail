@@ -3,17 +3,12 @@ const crypto = require('crypto');
 const tls = require('tls');
 const util = require('util');
 const x509 = require('x509');
+const set = require('./set.js');
 const FSM = require('./fsm.js').FSM;
 const neigh = require('./neigh.js');
 
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };
 const ca2fp = (ca) => x509.parseCert(ca.toString()).fingerPrint.replace(/:/g, '').toLowerCase();
-const setRO = (obj, key, value) => Object.defineProperty(obj, key, {
-	value: value,
-	writable: false,
-	enumerable: true,
-	configurable: false
-});
 
 function Tubemail (opts) {
 	EventEmitter.call(this);
@@ -29,18 +24,18 @@ function Tubemail (opts) {
 	if (opts.port === undefined) opts.port = 4816;
 
 	// Store opt data
-	setRO(this, 'key', opts.key);
-	setRO(this, 'cert', opts.cert);
-	setRO(this, 'ca', opts.ca);
+	set.readonly(this, 'key', opts.key);
+	set.readonly(this, 'cert', opts.cert);
+	set.readonly(this, 'ca', opts.ca);
 	this.port = opts.port;
 	this.discovery = opts.discovery;
 
 	// Create stores
-	setRO(this, 'knownIDs', []);
-	setRO(this, 'neigh', {});
+	set.readonly(this, 'knownIDs', []);
+	set.readonly(this, 'neigh', {});
 
 	// Extract ca fingerprint
-	setRO(this, 'fingerPrint', ca2fp(opts.ca));
+	set.readonly(this, 'fingerPrint', ca2fp(opts.ca));
 }
 
 util.inherits(Tubemail, EventEmitter);
@@ -51,7 +46,7 @@ const fsmFactory = FSM({
 		generateLocalID: (tm, state, destroy) => {
 			crypto.randomBytes(64, (err, id) => {
 				if (err) return destroy(err);
-				setRO(tm, 'id', id.toString('hex'));
+				set.readonly(tm, 'id', id.toString('hex'));
 				state('createServer');
 			});
 		},
@@ -84,6 +79,7 @@ const fsmFactory = FSM({
 					tm.emit('newNeigh', n);
 				}).on('destroy', (n) => {
 					// TODO: Remove known ID
+					// TODO: Remove events
 				});
 			});
 

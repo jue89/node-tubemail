@@ -15,13 +15,6 @@ jest.useFakeTimers();
 beforeEach(() => jest.clearAllTimers());
 
 describe('outbound factory', () => {
-	test('store host and port', () => {
-		const remote = { host: 'peni$', port: 69 };
-		neigh.outbound({}, remote);
-		expect(FSM.__data.host).toEqual(remote.host);
-		expect(FSM.__data.port).toEqual(remote.port);
-	});
-
 	test('connect to discovered host', (done) => {
 		const local = {
 			id: Buffer.alloc(64, 'z').toString('hex'),
@@ -37,7 +30,7 @@ describe('outbound factory', () => {
 		neigh.outbound(local, remote);
 		FSM.__config.states.connect(FSM.__data, (state) => {
 			try {
-				expect(state).toEqual('receiveRemoteID');
+				expect(state).toEqual('getSocketInfo');
 				expect(FSM.__data.interface).toBeInstanceOf(S2B);
 				expect(tls.connect.mock.calls[0][0]).toMatchObject({
 					ca: [local.ca],
@@ -76,6 +69,30 @@ describe('outbound factory', () => {
 		tls.__socket.authorized = false;
 		tls.__socket.authorizationError = reason;
 		tls.__socket.emit('secureConnect');
+	});
+
+	test('get remote cert, host and port', (done) => {
+		neigh.outbound({}, {});
+		const host = '1.2.3.4';
+		const port = 9876;
+		const cert = { test: 'true' };
+		const socket = {
+			remoteAddress: host,
+			remotePort: port,
+			getPeerCertificate: () => cert
+		};
+		const n = {
+			socket: socket
+		};
+		FSM.__config.states.getSocketInfo(n, (state) => {
+			try {
+				expect(state).toEqual('receiveRemoteID');
+				expect(n.host).toEqual(host);
+				expect(n.port).toEqual(port);
+				expect(n.cert).toBe(cert);
+				done();
+			} catch (e) { done(e); }
+		});
 	});
 
 	test('reject if too short welcome message has been sent', (done) => {

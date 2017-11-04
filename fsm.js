@@ -31,6 +31,9 @@ FSM.prototype.enterState = function (newState) {
 			ret.then((nextState) => resolve(nextState)).catch((e) => reject(e));
 		}
 
+		// Expose destroy callback
+		this.destroy = reject;
+
 		// We entered the new state! Update FSM and call events
 		this.state = newState;
 		this.emit('state', this.data, newState, oldState);

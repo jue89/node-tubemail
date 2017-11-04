@@ -163,6 +163,21 @@ test('destroy fsm with reject callback', (done) => {
 	})({});
 });
 
+test('expose current destroy callback', (done) => {
+	const fsm = FSM({
+		onDestroy: (d, err) => {
+			try {
+				expect(err.message).toEqual('test');
+				done();
+			} catch (e) { done(e); }
+		},
+		firstState: 'first',
+		states: {
+			first: () => {}
+		}
+	})({}).on('state', () => fsm.destroy(new Error('test')));
+});
+
 test('emit event if fsm is destroyed', (done) => {
 	const data = {};
 	const fsm = FSM({

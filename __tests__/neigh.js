@@ -30,8 +30,7 @@ describe('outbound factory', () => {
 		neigh.outbound(local, remote);
 		FSM.__config.states.connect(FSM.__data, (state) => {
 			try {
-				expect(state).toEqual('getSocketInfo');
-				expect(FSM.__data.interface).toBeInstanceOf(S2B);
+				expect(state).toEqual('checkAuth');
 				expect(tls.connect.mock.calls[0][0]).toMatchObject({
 					ca: [local.ca],
 					key: local.key,
@@ -42,33 +41,48 @@ describe('outbound factory', () => {
 				done();
 			} catch (e) { done(e); }
 		});
-		tls.__socket.emit('secureConnect');
+	});
+
+	test('check authorisation', (done) => {
+		neigh.outbound({}, {});
+		FSM.__data.socket = new EventEmitter();
+		FSM.__data.socket.authorized = true;
+		FSM.__config.states.checkAuth(FSM.__data, (state) => {
+			try {
+				expect(state).toEqual('getSocketInfo');
+				expect(FSM.__data.interface).toBeInstanceOf(S2B);
+				done();
+			} catch (e) { done(e); }
+		});
+		FSM.__data.socket.emit('secureConnect');
 	});
 
 	test('reject if connection attempt failed', (done) => {
 		neigh.outbound({}, {});
+		FSM.__data.socket = new EventEmitter();
 		const err = new Error('Mimimi');
-		FSM.__config.states.connect({}, () => {}, (e) => {
+		FSM.__config.states.checkAuth(FSM.__data, () => {}, (e) => {
 			try {
 				expect(e).toBe(err);
 				done();
 			} catch (e) { done(e); }
 		});
-		tls.__socket.emit('error', err);
+		FSM.__data.socket.emit('error', err);
 	});
 
 	test('reject if connection is not authorised', (done) => {
 		neigh.outbound({}, {});
+		FSM.__data.socket = new EventEmitter();
 		const reason = 'Ohne Tasche keine Competition!';
-		FSM.__config.states.connect(FSM.__data, () => {}, (err) => {
+		FSM.__config.states.checkAuth(FSM.__data, () => {}, (err) => {
 			try {
 				expect(err.message).toEqual(reason);
 				done();
 			} catch (e) { done(e); }
 		});
-		tls.__socket.authorized = false;
-		tls.__socket.authorizationError = reason;
-		tls.__socket.emit('secureConnect');
+		FSM.__data.socket.authorized = false;
+		FSM.__data.socket.authorizationError = reason;
+		FSM.__data.socket.emit('secureConnect');
 	});
 
 	test('get remote cert, host and port', (done) => {

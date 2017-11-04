@@ -36,7 +36,11 @@ const outbound = (local, remote) => FSM({
 				key: local.key,
 				cert: local.cert,
 				checkServerIdentity: () => undefined
-			}).on('secureConnect', () => {
+			}));
+			state('checkAuth');
+		},
+		checkAuth: (n, state, destroy) => {
+			n.socket.on('secureConnect', () => {
 				// Make sure the connection is authorized
 				if (!n.socket.authorized) {
 					destroy(new Error(n.socket.authorizationError));
@@ -44,7 +48,7 @@ const outbound = (local, remote) => FSM({
 					set.hidden(n, 'interface', new S2B(n.socket));
 					state('getSocketInfo');
 				}
-			}).on('error', (err) => destroy(err)));
+			}).on('error', (err) => destroy(err));
 		},
 		getSocketInfo: (n, state, destroy) => {
 			set.readonly(n, 'host', n.socket.remoteAddress);

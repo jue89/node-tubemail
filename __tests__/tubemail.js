@@ -249,7 +249,7 @@ test('add learned outbound id', () => {
 
 test('add learned outbound neigh and raise event', (done) => {
 	const discovery = jest.fn();
-	const n = { id: 'hot-neighbour' };
+	const n = { id: 'hot-neighbour', on: jest.fn() };
 	const tm = {
 		port: 1234,
 		fingerPrint: 'abcd',
@@ -261,6 +261,7 @@ test('add learned outbound neigh and raise event', (done) => {
 				expect(e).toEqual('newNeigh');
 				expect(x).toBe(n);
 				expect(tm.neigh[n.id]).toBe(n);
+				expect(n.on.mock.calls[0][0]).toEqual('message');
 				done();
 			} catch (e) { done(e); }
 		}
@@ -290,7 +291,7 @@ test('call factory for incoming connections', () => {
 
 test('add learned inbound neigh and raise event', (done) => {
 	const socket = new EventEmitter();
-	const n = { id: 'hot-neighbour' };
+	const n = { id: 'hot-neighbour', on: jest.fn() };
 	const tm = {
 		socket,
 		discovery: () => {},
@@ -302,6 +303,7 @@ test('add learned inbound neigh and raise event', (done) => {
 				expect(x).toBe(n);
 				expect(tm.knownIDs[0]).toEqual(n.id);
 				expect(tm.neigh[n.id]).toBe(n);
+				expect(n.on.mock.calls[0][0]).toEqual('message');
 				done();
 			} catch (e) { done(e); }
 		}

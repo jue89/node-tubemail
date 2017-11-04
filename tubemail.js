@@ -75,6 +75,7 @@ const fsmFactory = FSM({
 					// Store handle if the connection has been established
 					tm.knownIDs.push(n.id);
 					tm.neigh[n.id] = n;
+					n.on('message', (msg, n) => this.emit('message', msg, n));
 					tm.emit('newNeigh', n);
 				}).on('destroy', (n) => {
 					// TODO: Remove known ID
@@ -91,6 +92,7 @@ const fsmFactory = FSM({
 				}).on('state:connected', (n) => {
 					// Finally store handle if the connection has been established
 					tm.neigh[n.id] = n;
+					n.on('message', (msg, n) => this.emit('message', msg, n));
 					tm.emit('newNeigh', n);
 				}).on('destroy', (n) => {
 					// TODO: Remove known ID

@@ -3,6 +3,9 @@ const EventEmitter = require('events');
 jest.mock('tls');
 const tls = require('tls');
 
+jest.mock('x509');
+const x509 = require('x509');
+
 jest.mock('../stream2block.js');
 const S2B = require('../stream2block.js');
 
@@ -87,21 +90,27 @@ describe('outbound factory', () => {
 		neigh.outbound({}, {});
 		const host = '1.2.3.4';
 		const port = 9876;
-		const cert = { test: 'true' };
+		const rawCert = { raw: Buffer.from('hello') };
+		const pemCert = '-----BEGIN CERTIFICATE-----\n' +
+			rawCert.raw.toString('base64') +
+			'\n-----END CERTIFICATE-----';
+		const cert = { test: true };
 		const socket = {
 			remoteAddress: host,
 			remotePort: port,
-			getPeerCertificate: () => cert
+			getPeerCertificate: () => rawCert
 		};
 		const n = {
 			socket: socket
 		};
+		x509.parseCert.mockImplementationOnce(() => cert);
 		FSM.__config.states.getSocketInfo(n, (state) => {
 			try {
 				expect(state).toEqual('receiveRemoteID');
 				expect(n.host).toEqual(host);
 				expect(n.port).toEqual(port);
-				expect(n.cert).toBe(cert);
+				expect(x509.parseCert.mock.calls[0][0]).toEqual(pemCert);
+				expect(n.info).toBe(cert);
 				done();
 			} catch (e) { done(e); }
 		});
@@ -326,7 +335,7 @@ describe('inbound factory', () => {
 		const socket = {
 			remoteAddress: '1.2.3.4',
 			remotePort: 9876,
-			getPeerCertificate: () => ({ test: 'true' })
+			getPeerCertificate: () => ({ raw: Buffer.from('hello') })
 		};
 		neigh.inbound({}, socket);
 		FSM.__config.states.getSocketInfo(FSM.__data, (state) => {

@@ -8,7 +8,8 @@ const FSM = require('./fsm.js').FSM;
 const neigh = require('./neigh.js');
 
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };
-const ca2fp = (ca) => x509.parseCert(ca.toString()).fingerPrint.replace(/:/g, '').toLowerCase();
+const parseCert = (cert) => x509.parseCert(cert.toString());
+const getFingerprint = (cert) => parseCert(cert).fingerPrint.replace(/:/g, '').toLowerCase();
 
 function Tubemail (opts) {
 	EventEmitter.call(this);
@@ -34,8 +35,9 @@ function Tubemail (opts) {
 	set.readonly(this, 'knownIDs', []);
 	set.readonly(this, 'neigh', {});
 
-	// Extract ca fingerprint
-	set.readonly(this, 'fingerPrint', ca2fp(opts.ca));
+	// Extract ca fingerprint and cert info
+	set.readonly(this, 'fingerPrint', getFingerprint(opts.ca));
+	set.readonly(this, 'info', parseCert(opts.cert));
 }
 
 util.inherits(Tubemail, EventEmitter);

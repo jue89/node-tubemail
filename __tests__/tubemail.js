@@ -126,6 +126,21 @@ test('get fingerprint from given ca cert', () => {
 	expect(FSM.__data.fingerPrint).toEqual(fingerPrint.replace(/:/g, '').toLowerCase());
 });
 
+test('parse cert info', () => {
+	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint: '' }));
+	const info = { test: true };
+	x509.parseCert.mockImplementationOnce(() => (info));
+	const cert = Buffer.from('chucky');
+	tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: cert,
+		discovery: () => {}
+	});
+	expect(x509.parseCert.mock.calls[1][0]).toEqual(cert.toString());
+	expect(FSM.__data.info).toBe(info);
+});
+
 test('resolve once server is listening', () => {
 	const fingerPrint = 'AB:cd:ef:12';
 	x509.parseCert.mockImplementationOnce(() => ({ fingerPrint }));

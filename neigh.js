@@ -1,6 +1,7 @@
 const EventEmitter = require('events');
 const tls = require('tls');
 const util = require('util');
+const x509 = require('x509');
 const set = require('./set.js');
 const FSM = require('./fsm.js').FSM;
 const S2B = require('./stream2block.js');
@@ -41,10 +42,12 @@ const checkAuth = (opts) => (n, state, destroy) => {
 	}
 };
 
+const raw2pem = (raw) => `-----BEGIN CERTIFICATE-----\n${raw.toString('base64')}\n-----END CERTIFICATE-----`;
 const getSocketInfo = (opts) => (n, state, destroy) => {
 	set.readonly(n, 'host', n.socket.remoteAddress);
 	set.readonly(n, 'port', n.socket.remotePort);
-	set.readonly(n, 'cert', n.socket.getPeerCertificate());
+	const cert = raw2pem(n.socket.getPeerCertificate().raw);
+	set.readonly(n, 'info', x509.parseCert(cert));
 	state(opts.state);
 };
 

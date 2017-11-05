@@ -198,6 +198,23 @@ test('create new server', (done) => {
 			done();
 		} catch (e) { done(e); }
 	});
+	tls.__server.emit('listening');
+});
+
+test('report failed listening attempt', (done) => {
+	const tm = {
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		port: 1234
+	};
+	FSM.__config.states.createServer(tm, () => {}, (err) => {
+		try {
+			expect(err.message).toEqual('Listening to port 1234 failed: NOPE');
+			done();
+		} catch (e) { done(e); }
+	});
+	tls.__server.emit('error', new Error('NOPE'));
 });
 
 test('call discovery with port and fingerprint', () => {

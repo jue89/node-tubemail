@@ -58,15 +58,17 @@ const fsmFactory = FSM({
 			});
 		},
 		createServer: (tm, state, destroy) => {
-			tm.socket = tls.createServer({
+			set.hidden(tm, 'socket', tls.createServer({
 				key: tm.key,
 				cert: tm.cert,
 				ca: [tm.ca],
 				requestCert: true,
 				rejectUnauthorized: true
-			});
-			tm.socket.listen(tm.port, () => state('listening'));
-			// TODO: Listen fails
+			}).on('error', (e) => {
+				destroy(new Error(`Listening to port ${tm.port} failed: ${e.message}`));
+			}).on('listening', () => {
+				state('listening');
+			}).listen(tm.port));
 		},
 		listening: (tm, state, destroy) => {
 			// React to incoming connects
@@ -104,7 +106,7 @@ const fsmFactory = FSM({
 		}
 	},
 	onLeave: (tm) => {
-		// if (tm.socket) tm.socket.removeAllListeners();
+		if (tm.socket) tm.socket.removeAllListeners();
 	},
 	onDestroy: (tm) => {
 		// if (tm.stopDiscovery) tm.stopDiscovery();

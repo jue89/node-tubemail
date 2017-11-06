@@ -59,12 +59,10 @@ const receiveRemoteID = (opts) => (n, state, destroy) => {
 			check(x.length === EMJ.length + 64, 'Incomplete welcome message');
 			check(Buffer.compare(EMJ, x.slice(0, EMJ.length)) === 0, 'Magic missing');
 
-			// Extract ID
-			set.hidden(n, '_id', x.slice(EMJ.length));
-			set.readonly(n, 'id', n._id.toString('hex'));
-
 			// Check it if we should keep the connection
-			const cmp = Buffer.compare(opts.local._id, n._id);
+			const _id = x.slice(EMJ.length);
+			const id = _id.toString('hex');
+			const cmp = Buffer.compare(opts.local._id, _id);
 			check(cmp !== 0, 'We connected ourselfes');
 			if (opts.inbound) {
 				check(cmp < 0, 'Remote ID lower than ours');
@@ -73,8 +71,10 @@ const receiveRemoteID = (opts) => (n, state, destroy) => {
 			}
 
 			// Check if we already know the other side
-			check(opts.local.knownIDs.indexOf(n.id) === -1, 'Remote ID is already connected');
+			check(opts.local.knownIDs.indexOf(id) === -1, 'Remote ID is already connected');
 
+			set.hidden(n, '_id', _id);
+			set.readonly(n, 'id', id);
 			state(opts.state);
 		} catch (e) {
 			destroy(e);

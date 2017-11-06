@@ -346,7 +346,7 @@ test('add learned inbound neigh and raise event', (done) => {
 });
 
 test('send data to all neighs', (done) => {
-	const neighs = ['a', 'b'].map((id) => ({
+	const neigh = ['a', 'b'].map((id) => ({
 		send: jest.fn()
 	}));
 	const msg = Buffer.alloc(0);
@@ -360,7 +360,7 @@ test('send data to all neighs', (done) => {
 	tubemail(tm).then((realm) => {
 		realm.send(msg);
 		try {
-			neighs.forEach((n) => {
+			neigh.forEach((n) => {
 				expect(n.send.mock.calls[0][0]).toBe(msg);
 			});
 			done();
@@ -368,6 +368,6 @@ test('send data to all neighs', (done) => {
 			done(e);
 		}
 	});
-	FSM.__data.neighs = neighs;
+	FSM.__data.neigh = neigh;
 	FSM.__fsm.emit('state:listening', FSM.__data);
 });

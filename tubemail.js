@@ -32,8 +32,8 @@ function Tubemail (opts) {
 	this.discovery = opts.discovery;
 
 	// Create stores
-	set.readonly(this, 'knownIDs', []);
-	set.readonly(this, 'neigh', {});
+	this.knownIDs = [];
+	this.neigh = {};
 
 	// Extract ca fingerprint and cert info
 	set.readonly(this, 'fingerPrint', getFingerprint(opts.ca));
@@ -43,8 +43,8 @@ function Tubemail (opts) {
 util.inherits(Tubemail, EventEmitter);
 
 Tubemail.prototype.send = function (msg) {
-	for (let n in this.neighs) {
-		this.neighs[n].send(msg);
+	for (let n in this.neigh) {
+		this.neigh[n].send(msg);
 	}
 };
 
@@ -79,7 +79,7 @@ const fsmFactory = FSM({
 					// Store handle if the connection has been established
 					tm.knownIDs.push(n.id);
 					tm.neigh[n.id] = n;
-					n.on('message', (msg, n) => this.emit('message', msg, n));
+					n.on('message', (msg, n) => tm.emit('message', msg, n));
 					tm.emit('newNeigh', n);
 				}).on('destroy', (n) => {
 					// TODO: Remove known ID
@@ -96,7 +96,7 @@ const fsmFactory = FSM({
 				}).on('state:connected', (n) => {
 					// Finally store handle if the connection has been established
 					tm.neigh[n.id] = n;
-					n.on('message', (msg, n) => this.emit('message', msg, n));
+					n.on('message', (msg, n) => tm.emit('message', msg, n));
 					tm.emit('newNeigh', n);
 				}).on('destroy', (n) => {
 					// TODO: Remove known ID
@@ -108,7 +108,10 @@ const fsmFactory = FSM({
 		}
 	},
 	onLeave: (tm) => {
-		if (tm.socket) tm.socket.removeAllListeners();
+		if (tm.socket) {
+			tm.socket.removeAllListeners('error');
+			tm.socket.removeAllListeners('listening');
+		}
 	},
 	onDestroy: (tm) => {
 		// if (tm.stopDiscovery) tm.stopDiscovery();

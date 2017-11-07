@@ -394,4 +394,12 @@ describe('inbound factory', () => {
 		FSM.__data.send(msg);
 		expect(FSM.__data.interface.send.mock.calls[0][0]).toBe(msg);
 	});
+
+	test('complain about non-buffer', () => {
+		const msg = 'hello';
+		neigh.inbound({}, {});
+		expect(() => {
+			FSM.__data.send(msg);
+		}).toThrowError('Payload must be a Buffer');
+	});
 });

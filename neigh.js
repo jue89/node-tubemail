@@ -15,6 +15,7 @@ function Neigh (socket) {
 util.inherits(Neigh, EventEmitter);
 
 Neigh.prototype.send = function (msg) {
+	if (!(msg instanceof Buffer)) throw new Error('Payload must be a Buffer');
 	this.interface.send(msg);
 };
 

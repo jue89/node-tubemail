@@ -73,23 +73,42 @@ const fsmFactory = FSM({
 			}).listen(tm.port));
 		},
 		listening: (tm, state, destroy) => {
+			// Destroy fsm upon leave call
+			set.readonly(tm, 'leave', destroy);
+
+			let neighs = [];
+			const removeDestroyedNeighs = () => {
+				neighs = neighs.filter((n) => {
+					if (n.state !== undefined) return true;
+					n.removeAllListeners();
+					if (n.data.id) {
+						tm.knownIDs = tm.knownIDs.filter((id) => id !== n.data.id);
+						delete tm.neigh[n.data.id];
+					}
+					return false;
+				});
+			};
+
+			set.hidden(tm, '_leave', () => {
+				neighs.forEach((n) => n.destroy());
+			});
+
 			// React to incoming connects
 			tm.socket.on('secureConnection', (socket) => {
-				neigh.inbound(tm, socket).on('state:connected', (n) => {
+				neighs.push(neigh.inbound(tm, socket).on('state:connected', (n) => {
 					// Store handle if the connection has been established
 					tm.knownIDs.push(n.id);
 					tm.neigh[n.id] = n;
 					n.on('message', (msg, n) => tm.emit('message', msg, n));
 					tm.emit('newNeigh', n);
-				}).on('destroy', (n) => {
-					// TODO: Remove known ID
-					// TODO: Remove events
-				});
+				}).on('destroy', (n, e) => {
+					removeDestroyedNeighs();
+				}));
 			});
 
 			// Kick off discovery and register callback for discovered peers
 			tm.discovery(tm.port, tm.fingerPrint, (remote) => {
-				neigh.outbound(tm, remote).on('state:sendLocalID', (n) => {
+				neighs.push(neigh.outbound(tm, remote).on('state:sendLocalID', (n) => {
 					// If an outbound connection reached the point that we are sending
 					// our ID, the remote ID has been accepted -> store learned ID
 					tm.knownIDs.push(n.id);
@@ -98,24 +117,28 @@ const fsmFactory = FSM({
 					tm.neigh[n.id] = n;
 					n.on('message', (msg, n) => tm.emit('message', msg, n));
 					tm.emit('newNeigh', n);
-				}).on('destroy', (n) => {
-					// TODO: Remove known ID
-					// TODO: Remove events
-				});
+				}).on('destroy', (n, e) => {
+					removeDestroyedNeighs();
+				}));
 			});
-
-			// TODO: socket closed
 		}
 	},
 	onLeave: (tm) => {
 		if (tm.socket) {
 			tm.socket.removeAllListeners('error');
 			tm.socket.removeAllListeners('listening');
+			tm.socket.removeAllListeners('secureConnection');
 		}
 	},
 	onDestroy: (tm) => {
-		// if (tm.stopDiscovery) tm.stopDiscovery();
-		// if (tm.socket.listening) tm.socket.close();
+		if (tm.socket && tm.socket.listening) {
+			tm.socket.on('close', () => tm.emit('goodbye'));
+			tm.socket.close();
+		} else {
+			setImmediate(() => tm.emit('goodbye'));
+		}
+		if (tm.stopDiscovery) tm.stopDiscovery();
+		if (tm._leave) tm._leave();
 	}
 });
 

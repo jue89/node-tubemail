@@ -303,6 +303,15 @@ test('add learned outbound neigh and raise event', (done) => {
 	neigh.__outbound.emit('state:connected', n);
 });
 
+test('expose destroy method in listening state', (done) => {
+	const tm = {
+		discovery: () => {},
+		socket: new EventEmitter()
+	};
+	FSM.__config.states.listening(tm, () => {}, done);
+	tm.leave();
+});
+
 test('call factory for incoming connections', () => {
 	const socket = new EventEmitter();
 	const tm = {
@@ -345,6 +354,72 @@ test('add learned inbound neigh and raise event', (done) => {
 	neigh.__inbound.emit('state:connected', n);
 });
 
+test('remove id and handle of inbound connection', () => {
+	const n1 = new EventEmitter();
+	n1.data = { id: 'abc' };
+	n1.state = undefined;
+	neigh.inbound.mockImplementationOnce(() => n1);
+	const n2 = new EventEmitter();
+	n2.data = { id: 'def' };
+	n2.state = 'connected';
+	neigh.inbound.mockImplementationOnce(() => n2);
+	const tm = {
+		discovery: () => {},
+		socket: new EventEmitter(),
+		knownIDs: [ 'abc', 'def' ],
+		neigh: { 'abc': n1, 'def': n2 }
+	};
+	FSM.__config.states.listening(tm);
+	tm.socket.emit('secureConnection');
+	tm.socket.emit('secureConnection');
+	n1.emit('destroy');
+	expect(tm.knownIDs).toEqual(['def']);
+	expect(tm.neigh).toEqual({'def': n2});
+});
+
+test('remove id and handle of outbound connection', () => {
+	const n1 = new EventEmitter();
+	n1.data = { id: 'abc' };
+	n1.state = undefined;
+	neigh.outbound.mockImplementationOnce(() => n1);
+	const n2 = new EventEmitter();
+	n2.data = { id: 'def' };
+	n2.state = 'connected';
+	neigh.outbound.mockImplementationOnce(() => n2);
+	const tm = {
+		discovery: jest.fn(),
+		socket: new EventEmitter(),
+		knownIDs: [ 'abc', 'def' ],
+		neigh: { 'abc': n1, 'def': n2 }
+	};
+	FSM.__config.states.listening(tm);
+	tm.discovery.mock.calls[0][2]();
+	tm.discovery.mock.calls[0][2]();
+	n1.emit('destroy');
+	expect(tm.knownIDs).toEqual(['def']);
+	expect(tm.neigh).toEqual({'def': n2});
+});
+
+test('install destory of all neigh FSMs method', () => {
+	const n = ['abc', 'def'].map((id) => {
+		const tmp = new EventEmitter();
+		tmp.data = {id};
+		tmp.destroy = jest.fn();
+		neigh.outbound.mockImplementationOnce(() => tmp);
+		return tmp;
+	});
+	const tm = {
+		discovery: jest.fn(),
+		socket: new EventEmitter(),
+		knownIDs: [],
+		neigh: {}
+	};
+	FSM.__config.states.listening(tm);
+	n.forEach(() => tm.discovery.mock.calls[0][2]());
+	tm._leave();
+	n.forEach((n) => expect(n.destroy.mock.calls.length).toEqual(1));
+});
+
 test('send data to all neighs', (done) => {
 	const neigh = ['a', 'b'].map((id) => ({
 		send: jest.fn()
@@ -370,4 +445,31 @@ test('send data to all neighs', (done) => {
 	});
 	FSM.__data.neigh = neigh;
 	FSM.__fsm.emit('state:listening', FSM.__data);
+});
+
+test('stop discovery on leave', (done) => {
+	const tm = new EventEmitter();
+	tm.stopDiscovery = jest.fn();
+	FSM.__config.onDestroy(tm);
+	expect(tm.stopDiscovery.mock.calls.length).toEqual(1);
+	tm.on('goodbye', () => done());
+});
+
+test('quit all FSMs on leave', (done) => {
+	const tm = new EventEmitter();
+	tm._leave = jest.fn();
+	FSM.__config.onDestroy(tm);
+	expect(tm._leave.mock.calls.length).toEqual(1);
+	tm.on('goodbye', () => done());
+});
+
+test('close socket on leave', (done) => {
+	const tm = new EventEmitter();
+	tm.socket = new EventEmitter();
+	tm.socket.listening = true;
+	tm.socket.close = jest.fn();
+	FSM.__config.onDestroy(tm);
+	expect(tm.socket.close.mock.calls.length).toEqual(1);
+	tm.on('goodbye', () => done());
+	tm.socket.emit('close');
 });

@@ -83,7 +83,10 @@ const fsmFactory = FSM({
 					n.removeAllListeners();
 					if (n.data.id) {
 						tm.knownIDs = tm.knownIDs.filter((id) => id !== n.data.id);
-						delete tm.neigh[n.data.id];
+						if (tm.neigh[n.data.id]) {
+							delete tm.neigh[n.data.id];
+							tm.emit('lostNeigh', n.data);
+						}
 					}
 					return false;
 				});
@@ -100,7 +103,7 @@ const fsmFactory = FSM({
 					tm.knownIDs.push(n.id);
 					tm.neigh[n.id] = n;
 					n.on('message', (msg, n) => tm.emit('message', msg, n));
-					tm.emit('newNeigh', n);
+					tm.emit('foundNeigh', n);
 				}).on('destroy', (n, e) => {
 					removeDestroyedNeighs();
 				}));
@@ -116,7 +119,7 @@ const fsmFactory = FSM({
 					// Finally store handle if the connection has been established
 					tm.neigh[n.id] = n;
 					n.on('message', (msg, n) => tm.emit('message', msg, n));
-					tm.emit('newNeigh', n);
+					tm.emit('foundNeigh', n);
 				}).on('destroy', (n, e) => {
 					removeDestroyedNeighs();
 				}));

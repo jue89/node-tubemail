@@ -22,14 +22,24 @@ function Tubemail (opts) {
 	check(opts.ca !== undefined, 'ca is missing');
 	check(opts.ca instanceof Buffer, 'ca must be a buffer');
 	check(opts.discovery !== undefined, 'discovery is missing');
-	if (opts.port === undefined) opts.port = 4816;
 
 	// Store opt data
 	set.readonly(this, 'key', opts.key);
 	set.readonly(this, 'cert', opts.cert);
 	set.readonly(this, 'ca', opts.ca);
-	this.port = opts.port;
 	this.discovery = opts.discovery;
+	if (typeof opts.port === 'number') {
+		this.portCandidates = [opts.port];
+	} else if (typeof opts.port === 'string') {
+		this.portCandidates = [parseInt(opts.port)];
+	} else if (opts.port instanceof Array) {
+		this.portCandidates = opts.port;
+	} else if (typeof opts.port === 'object' && opts.port.from <= opts.port.to) {
+		this.portCandidates = [];
+		for (let i = opts.port.from; i <= opts.port.to; i++) this.portCandidates.push(i);
+	} else {
+		this.portCandidates = [4816, 4817, 4818, 4819];
+	}
 
 	// Create stores
 	this.knownIDs = [];
@@ -66,11 +76,20 @@ const fsmFactory = FSM({
 				ca: [tm.ca],
 				requestCert: true,
 				rejectUnauthorized: true
-			}).on('error', (e) => {
-				destroy(new Error(`Listening to port ${tm.port} failed: ${e.message}`));
+			}));
+			state('listen');
+		},
+		listen: (tm, state, destroy) => {
+			const candidate = tm.portCandidates.shift();
+			if (candidate === undefined) destroy(new Error('Listening failed'));
+			tm.socket.on('error', (e) => {
+				if (e.code === 'EADDRINUSE') state('listen');
+				else destroy(new Error(`Listening to port ${candidate} failed: ${e.message}`));
 			}).on('listening', () => {
+				set.readonly(tm, 'port', candidate);
+				delete tm.portCandidates;
 				state('listening');
-			}).listen(tm.port));
+			}).listen(candidate);
 		},
 		listening: (tm, state, destroy) => {
 			// Destroy fsm upon leave call

@@ -90,6 +90,16 @@ test('complain about missing discovery', () => {
 	});
 });
 
+test('set port to 4816/4817/4818/4819 by default', () => {
+	tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: () => {}
+	});
+	expect(FSM.__data.portCandidates).toEqual([4816, 4817, 4818, 4819]);
+});
+
 test('store specified port', () => {
 	const port = 1234;
 	tubemail({
@@ -99,17 +109,42 @@ test('store specified port', () => {
 		discovery: () => {},
 		port: port
 	});
-	expect(FSM.__data.port).toEqual(port);
+	expect(FSM.__data.portCandidates).toEqual([port]);
 });
 
-test('set port to 4816 by default', () => {
+test('store specified port as string', () => {
+	const port = '1234';
 	tubemail({
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0),
-		discovery: () => {}
+		discovery: () => {},
+		port: port
 	});
-	expect(FSM.__data.port).toEqual(4816);
+	expect(FSM.__data.portCandidates).toEqual([parseInt(port)]);
+});
+
+test('store specified port candidates', () => {
+	const port = [1234, 5678];
+	tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: () => {},
+		port: port
+	});
+	expect(FSM.__data.portCandidates).toEqual(port);
+});
+
+test('store specified port range', () => {
+	tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		discovery: () => {},
+		port: {from: 1234, to: 1236}
+	});
+	expect(FSM.__data.portCandidates).toEqual([1234, 1235, 1236]);
 });
 
 test('get fingerprint from given ca cert', () => {
@@ -155,7 +190,6 @@ test('resolve once server is listening', () => {
 		expect(realm.ca).toBe(tm.ca);
 		expect(realm.key).toBe(tm.key);
 		expect(realm.cert).toBe(tm.cert);
-		expect(realm.port).toEqual(tm.port);
 		expect(realm.discovery).toBe(tm.discovery);
 		expect(realm.knownIDs).toBeInstanceOf(Array);
 		expect(realm.neigh).toEqual({});
@@ -201,7 +235,7 @@ test('create new server', (done) => {
 	};
 	FSM.__config.states.createServer(tm, (state) => {
 		try {
-			expect(state).toEqual('listening');
+			expect(state).toEqual('listen');
 			expect(tls.createServer.mock.calls[0][0]).toMatchObject({
 				ca: [tm.ca],
 				cert: tm.cert,
@@ -209,14 +243,76 @@ test('create new server', (done) => {
 				requestCert: true,
 				rejectUnauthorized: true
 			});
-			expect(tls.__server.listen.mock.calls[0][0]).toEqual(tm.port);
 			done();
 		} catch (e) { done(e); }
 	});
-	tls.__server.emit('listening');
 });
 
-test('report failed listening attempt', (done) => {
+test('listen on port candidate', (done) => {
+	const port = 1234;
+	const tm = {
+		socket: new EventEmitter(),
+		portCandidates: [port]
+	};
+	tm.socket.listen = jest.fn();
+	FSM.__config.states.listen(tm, (state) => {
+		try {
+			expect(state).toEqual('listening');
+			expect(tm.socket.listen.mock.calls[0][0]).toEqual(port);
+			expect(tm.port).toEqual(port);
+			expect(tm.portCandidates).toBe(undefined);
+			done();
+		} catch (e) { done(e); }
+	});
+	tm.socket.emit('listening');
+});
+
+test('report if listen fails', (done) => {
+	const tm = {
+		socket: new EventEmitter(),
+		portCandidates: []
+	};
+	tm.socket.listen = jest.fn();
+	FSM.__config.states.listen(tm, () => {}, (err) => {
+		try {
+			expect(err.message).toEqual('Listening failed');
+			done();
+		} catch (e) { done(e); }
+	});
+});
+
+test('try next candidate if port is in use', (done) => {
+	const tm = {
+		socket: new EventEmitter(),
+		portCandidates: [1234, 5678]
+	};
+	tm.socket.listen = () => {};
+	FSM.__config.states.listen(tm, (state) => {
+		try {
+			expect(state).toEqual('listen');
+			expect(tm.portCandidates).toEqual([5678]);
+			done();
+		} catch (e) { done(e); }
+	});
+	tm.socket.emit('error', { code: 'EADDRINUSE' });
+});
+
+test('destroy if another error occured', (done) => {
+	const tm = {
+		socket: new EventEmitter(),
+		portCandidates: [1234]
+	};
+	tm.socket.listen = () => {};
+	FSM.__config.states.listen(tm, () => {}, (err) => {
+		try {
+			expect(err.message).toEqual('Listening to port 1234 failed: NOPE');
+			done();
+		} catch (e) { done(e); }
+	});
+	tm.socket.emit('error', { message: 'NOPE' });
+});
+
+/* test('report failed listening attempt', (done) => {
 	const tm = {
 		ca: Buffer.alloc(0),
 		key: Buffer.alloc(0),
@@ -230,7 +326,7 @@ test('report failed listening attempt', (done) => {
 		} catch (e) { done(e); }
 	});
 	tls.__server.emit('error', new Error('NOPE'));
-});
+}); */
 
 test('call discovery with port and fingerprint', () => {
 	const discovery = jest.fn();

@@ -110,6 +110,7 @@ const onLeave = (n) => {
 
 const onDestroy = (n) => {
 	if (n.socket && !n.socket.destroyed) n.socket.destroy();
+	n.emit('goodbye');
 };
 
 const outbound = (local, remote) => FSM({

@@ -230,7 +230,7 @@ describe('outbound factory', () => {
 			destroy: jest.fn()
 		};
 		neigh.outbound({}, {});
-		FSM.__config.onDestroy({ socket: socket });
+		FSM.__config.onDestroy({ socket: socket, emit: () => {} });
 		expect(socket.destroy.mock.calls.length).toEqual(1);
 	});
 
@@ -401,5 +401,11 @@ describe('inbound factory', () => {
 		expect(() => {
 			FSM.__data.send(msg);
 		}).toThrowError('Payload must be a Buffer');
+	});
+
+	test('emit message if neigh leaves realm', (done) => {
+		neigh.inbound({});
+		FSM.__data.on('goodbye', () => done());
+		FSM.__config.onDestroy(FSM.__data);
 	});
 });

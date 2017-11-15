@@ -5,22 +5,25 @@ Once connected, you get a fully meshed network to throw around some Buffers. TLS
 
 ## Example
 
-Clone the project and pull in all dependencies:
+Install tubemail and tubemail-mdns:
 
 ```sh
-git clone https://github.com/jue89/node-tubemail.git
-cd node-tubemail
-npm install
-npm install tubemail-mdns
+npm install -g tubemail tubemail-mdns
 ```
 
 Create some certificates and keys:
 
 ```sh
-cd pki
-./createRealm realm
-./createPeer realm peer1
-./createPeer realm peer2
+mkdir example
+cd example
+cat > config.sh <<EOF
+COUNTRY="VA"
+STATE="Fairyland"
+LOCALITY="Rainbow"
+EOF
+createRealm realm
+createPeer realm peer1
+createPeer realm peer2
 ```
 
 Create scripts for the peers in the same directory:
@@ -28,7 +31,7 @@ Create scripts for the peers in the same directory:
 ```js
 // peer1.js
 const fs = require('fs');
-const tubemail = require('..');
+const tubemail = require('tubemail');
 const mdnsDiscovery = require('tubemail-mdns');
 
 const toBuffer = (obj) => Buffer.from(obj.toString());
@@ -50,7 +53,7 @@ tubemail.join({
 ```js
 // peer2.js
 const fs = require('fs');
-const tubemail = require('..');
+const tubemail = require('tubemail');
 const mdnsDiscovery = require('tubemail-mdns');
 
 const toBuffer = (obj) => Buffer.from(obj.toString());

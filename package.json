@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "description": "TLS Mesh Network",
   "main": "tubemail.js",
+  "bin": {
+    "createRealm": "./pki/createRealm.sh",
+    "createPeer": "./pki/createPeer.sh"
+  },
   "directories": {},
   "scripts": {
     "test": "happiness && jest",

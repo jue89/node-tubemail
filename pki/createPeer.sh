@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 err() {
 	echo $1
 	exit
@@ -9,13 +8,15 @@ err() {
 [ $# -le 1 ] && err "Usage: createPeer [realm] [name]"
 
 # Prepare some vars
-. config.sh
+[ ! -e config.sh ] && err "The config is missing! Please create \"config.sh\""
+. $(pwd)/config.sh
+[ -z $COUNTRY ] && err "Variable COUNTRY is not set in config.sh"
+[ -z $STATE ] && err "Variable STATE is not set in config.sh"
+[ -z $LOCALITY ] && err "Variable LOCALITY is not set in config.sh"
 REALM=$1
 PEER=$2
 
 # Check if realm stuff is present
-
-
 [ ! -e $REALM.crt ] && err "Realm certificate is missing"
 [ ! -e $REALM.key ] && err "Realm key is missing"
 [ -e $REALM.$PEER.key -o -e $REALM.$PEER.key ] && err "Peer is already existing"

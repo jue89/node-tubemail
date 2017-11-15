@@ -121,7 +121,7 @@ const fsmFactory = FSM({
 					// Store handle if the connection has been established
 					tm.knownIDs.push(n.id);
 					tm.neigh[n.id] = n;
-					n.on('message', (msg, n) => tm.emit('message', msg, n));
+					n.on('message', (msg) => tm.emit('message', msg, n));
 					tm.emit('foundNeigh', n);
 				}).on('destroy', (n, e) => {
 					removeDestroyedNeighs();
@@ -137,7 +137,7 @@ const fsmFactory = FSM({
 				}).on('state:connected', (n) => {
 					// Finally store handle if the connection has been established
 					tm.neigh[n.id] = n;
-					n.on('message', (msg, n) => tm.emit('message', msg, n));
+					n.on('message', (msg) => tm.emit('message', msg, n));
 					tm.emit('foundNeigh', n);
 				}).on('destroy', (n, e) => {
 					removeDestroyedNeighs();

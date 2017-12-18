@@ -1,13 +1,14 @@
-# Mail Tube Network
+# Tube Mail Network
 
 Once connected, you get a fully meshed network to throw around some Buffers. TLS-secured of course. The - I think - coolest feature is that peers will find each other automagically. Without any central instance. Without an IP address list of the other peers. Just kick off a new peer and it will become a member of the mesh. *It just works. (And if it doesn't, please write an Issue.)*
 
 
 ## Example
 
-Install tubemail and tubemail-mdns:
+Install *tubemail* and *tubemail-mdns*. You will need the *avahi dnssd dev package* for the latter. It is named *libavahi-compat-libdnssd-dev* on Debian-flavoured systems.
 
 ```sh
+apt install libavahi-compat-libdnssd-dev
 npm install -g tubemail tubemail-mdns
 ```
 
@@ -93,8 +94,8 @@ Joins / create a new realm. ```opts``` is an object:
    * ```stopDiscovery```: Will be called by *Tube Mail* if discovery shall be stopped.
 
 You do not have to implement the discovery by yourself if you don't want to. Check out:
- * *tubemail-mdns*: Discovers other peers on the local network using mDNS / DNS-SD.
- * *tubemail-dht*: (Ab)uses the Bittorrent DHT for discovering peers on the internet. TBH: This feels a little bit magical :) Don't forget to forward the ports if you are forced to have your peer behind some *evil* NAT.
+ * [tubemail-mdns](https://github.com/jue89/node-tubemail-mdns): Discovers other peers on the local network using mDNS / DNS-SD.
+ * [tubemail-dht](https://github.com/jue89/node-tubemail-dht): (Ab)uses the Bittorrent DHT for discovering peers on the internet. TBH: This feels a little bit magical :) Don't forget to forward the ports if you are forced to have your peer behind some *evil* NAT.
 
 Resolved ```realm``` is an instance of Realm.
 

@@ -1,12 +1,45 @@
 {
-	"name": "tubemail",
-	"version": "0.0.0",
-	"description": "TLS Mesh Network",
-	"main": "index.js",
-	"directories": { },
-	"scripts": { },
-	"author": "Jue <me@jue.yt>",
-	"license": "MIT",
-	"dependencies": { },
-	"devDependencies": { }
+  "name": "tubemail",
+  "version": "1.0.0",
+  "description": "TLS Mesh Network",
+  "main": "tubemail.js",
+  "bin": {
+    "createRealm": "./pki/createRealm.sh",
+    "createPeer": "./pki/createPeer.sh"
+  },
+  "directories": {},
+  "scripts": {
+    "test": "happiness && jest",
+    "watch": "jest --watchAll"
+  },
+  "author": "Juergen Fitschen <me@jue.yt>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jue89/node-tubemail.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jue89/node-tubemail/issues"
+  },
+  "homepage": "https://github.com/jue89/node-tubemail#readme",
+  "license": "MIT",
+  "dependencies": {
+    "x509": "^0.3.2"
+  },
+  "devDependencies": {
+    "happiness": "^10.0.2",
+    "jest": "^21.2.1"
+  },
+  "happiness": {
+    "globals": [
+      "jest",
+      "describe",
+      "test",
+      "expect",
+	  "beforeEach"
+    ]
+  },
+  "jest": {
+    "automock": false,
+    "clearMocks": true
+  }
 }

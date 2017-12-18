@@ -1,6 +1,6 @@
 {
   "name": "tubemail",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "TLS Mesh Network",
   "main": "tubemail.js",
   "bin": {
@@ -12,7 +12,15 @@
     "test": "happiness && jest",
     "watch": "jest --watchAll"
   },
-  "author": "Jue <me@jue.yt>",
+  "author": "Juergen Fitschen <me@jue.yt>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jue89/node-tubemail.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jue89/node-tubemail/issues"
+  },
+  "homepage": "https://github.com/jue89/node-tubemail#readme",
   "license": "MIT",
   "dependencies": {
     "x509": "^0.3.2"

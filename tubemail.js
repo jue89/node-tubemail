@@ -5,6 +5,7 @@ const util = require('util');
 const x509 = require('x509');
 const set = require('./set.js');
 const FSM = require('./fsm.js').FSM;
+const TEL = require('./tel.js').TemporaryEventListener;
 const neigh = require('./neigh.js');
 
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };
@@ -82,14 +83,15 @@ const fsmFactory = FSM({
 		listen: (tm, state, destroy) => {
 			const candidate = tm.portCandidates.shift();
 			if (candidate === undefined) destroy(new Error('Listening failed'));
-			tm.socket.on('error', (e) => {
+			tm.tel = new TEL(tm.socket).on('error', (e) => {
 				if (e.code === 'EADDRINUSE') state('listen');
 				else destroy(new Error(`Listening to port ${candidate} failed: ${e.message}`));
 			}).on('listening', () => {
 				set.readonly(tm, 'port', candidate);
 				delete tm.portCandidates;
 				state('listening');
-			}).listen(candidate);
+			});
+			tm.socket.listen(candidate);
 		},
 		listening: (tm, state, destroy) => {
 			// Destroy fsm upon leave call
@@ -116,7 +118,7 @@ const fsmFactory = FSM({
 			});
 
 			// React to incoming connects
-			tm.socket.on('secureConnection', (socket) => {
+			tm.tel = new TEL(tm.socket).on('secureConnection', (socket) => {
 				neighs.push(neigh.inbound(tm, socket).on('state:connected', (n) => {
 					// Store handle if the connection has been established
 					tm.knownIDs.push(n.id);
@@ -146,10 +148,9 @@ const fsmFactory = FSM({
 		}
 	},
 	onLeave: (tm) => {
-		if (tm.socket) {
-			tm.socket.removeAllListeners('error');
-			tm.socket.removeAllListeners('listening');
-			tm.socket.removeAllListeners('secureConnection');
+		if (tm.tel) {
+			tm.tel.clear();
+			delete tm.tel;
 		}
 	},
 	onDestroy: (tm) => {

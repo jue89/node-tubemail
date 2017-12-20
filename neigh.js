@@ -82,8 +82,14 @@ const receiveRemoteID = (opts) => (n, state, destroy) => {
 		} catch (e) {
 			destroy(e);
 		}
-	}).on('close', () => destroy(new Error('Remote host closed the connection')));
-	setTimeout(() => destroy(new Error('Remote host has not sent its ID')), 5000);
+	}).on('close', () => {
+		destroy(new Error('Remote host closed the connection'));
+	}).on('error', (e) => {
+		destroy(e);
+	});
+	setTimeout(() => {
+		destroy(new Error('Remote host has not sent its ID'));
+	}, 5000);
 };
 
 const sendLocalID = (opts) => (n, state, destroy) => {
@@ -96,6 +102,8 @@ const connected = (opts) => (n, state, destroy) => {
 		n.emit('message', data);
 	}).on('close', () => {
 		destroy(new Error('Connection closed'));
+	}).on('error', (e) => {
+		destroy(e);
 	});
 };
 

@@ -8,6 +8,8 @@ const FSM = require('./fsm.js').FSM;
 const TEL = require('./tel.js').TemporaryEventListener;
 const neigh = require('./neigh.js');
 
+const debug = util.debuglog('tubemail');
+
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };
 const parseCert = (cert) => x509.parseCert(cert.toString());
 const getFingerprint = (cert) => parseCert(cert).fingerPrint.replace(/:/g, '').toLowerCase();
@@ -67,6 +69,7 @@ const fsmFactory = FSM({
 				if (err) return destroy(err);
 				set.hidden(tm, '_id', id);
 				set.readonly(tm, 'id', id.toString('hex'));
+				debug('local id:', tm.id);
 				state('createServer');
 			});
 		},
@@ -89,6 +92,7 @@ const fsmFactory = FSM({
 			}).on('listening', () => {
 				set.readonly(tm, 'port', candidate);
 				delete tm.portCandidates;
+				debug('listening on port:', tm.port);
 				state('listening');
 			});
 			tm.socket.listen(candidate);
@@ -119,19 +123,23 @@ const fsmFactory = FSM({
 
 			// React to incoming connects
 			tm.tel = new TEL(tm.socket).on('secureConnection', (socket) => {
+				debug('inbound connection: %s:%d', socket.remoteAddress, socket.remotePort);
 				neighs.push(neigh.inbound(tm, socket).on('state:connected', (n) => {
 					// Store handle if the connection has been established
 					tm.knownIDs.push(n.id);
 					tm.neigh[n.id] = n;
 					n.on('message', (msg) => tm.emit('message', msg, n));
 					tm.emit('foundNeigh', n);
+					debug('inbound neigh connected:', n.id);
 				}).on('destroy', (n, e) => {
 					removeDestroyedNeighs();
+					debug('inbound neigh destroyed: %s - reason: %s', n.id || 'unknown id', e.message);
 				}));
 			});
 
 			// Kick off discovery and register callback for discovered peers
 			tm.discovery(tm.port, tm.fingerPrint, (remote) => {
+				debug('outbound connection: %s:%d', remote.host, remote.port);
 				neighs.push(neigh.outbound(tm, remote).on('state:sendLocalID', (n) => {
 					// If an outbound connection reached the point that we are sending
 					// our ID, the remote ID has been accepted -> store learned ID
@@ -141,8 +149,10 @@ const fsmFactory = FSM({
 					tm.neigh[n.id] = n;
 					n.on('message', (msg) => tm.emit('message', msg, n));
 					tm.emit('foundNeigh', n);
+					debug('outbound neigh connected:', n.id);
 				}).on('destroy', (n, e) => {
 					removeDestroyedNeighs();
+					debug('outbound neigh destroyed: %s - reason: %s', n.id || 'unknown id', e.message);
 				}));
 			});
 		}

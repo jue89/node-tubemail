@@ -161,10 +161,10 @@ Broadcast ```message``` to all connected neighbours. ```meassge``` must be a *Bu
 #### Method: leave
 
 ```js
-realm.leave();
+realm.leave().then(() => {...});
 ```
 
-Shutdown *Tube Mail*.
+Shutdown *Tube Mail*. Will resolve once the listening socket and connections have been closed.
 
 ### Class: Neighbour
 

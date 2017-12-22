@@ -399,15 +399,6 @@ test('add learned outbound neigh and raise event', (done) => {
 	neigh.__outbound.emit('state:connected', n);
 });
 
-test('expose destroy method in listening state', (done) => {
-	const tm = {
-		discovery: () => {},
-		socket: new EventEmitter()
-	};
-	FSM.__config.states.listening(tm, () => {}, done);
-	tm.leave();
-});
-
 test('call factory for incoming connections', () => {
 	const socket = new EventEmitter();
 	const tm = {
@@ -582,4 +573,18 @@ test('close socket on leave', (done) => {
 	expect(tm.socket.close.mock.calls.length).toEqual(1);
 	tm.on('goodbye', () => done());
 	tm.socket.emit('close');
+});
+
+test('resolve on leave', () => {
+	const q = tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		port: 4321,
+		discovery: () => {}
+	});
+	FSM.__data.socket = new EventEmitter();
+	FSM.__config.states.listening(FSM.__data, () => {}, () => FSM.__data.emit('goodbye'));
+	FSM.__fsm.emit('state:listening', FSM.__data);
+	return q.then((realm) => realm.leave());
 });

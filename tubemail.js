@@ -61,6 +61,14 @@ Tubemail.prototype.send = function (msg) {
 	}
 };
 
+Tubemail.prototype.leave = function () {
+	return new Promise((resolve) => {
+		if (!this._destroy) throw new Error('Destroy handler missing!');
+		this.once('goodbye', resolve);
+		this._destroy();
+	});
+};
+
 const fsmFactory = FSM({
 	firstState: 'generateLocalID',
 	states: {
@@ -99,7 +107,7 @@ const fsmFactory = FSM({
 		},
 		listening: (tm, state, destroy) => {
 			// Destroy fsm upon leave call
-			set.readonly(tm, 'leave', destroy);
+			set.hidden(tm, '_destroy', destroy);
 
 			let neighs = [];
 			const removeDestroyedNeighs = () => {
@@ -165,7 +173,7 @@ const fsmFactory = FSM({
 	},
 	onDestroy: (tm) => {
 		if (tm.socket && tm.socket.listening) {
-			tm.socket.on('close', () => tm.emit('goodbye'));
+			tm.socket.on('close', () => setImmediate(() => tm.emit('goodbye')));
 			tm.socket.close();
 		} else {
 			setImmediate(() => tm.emit('goodbye'));

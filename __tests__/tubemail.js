@@ -399,15 +399,6 @@ test('add learned outbound neigh and raise event', (done) => {
 	neigh.__outbound.emit('state:connected', n);
 });
 
-test('expose destroy method in listening state', (done) => {
-	const tm = {
-		discovery: () => {},
-		socket: new EventEmitter()
-	};
-	FSM.__config.states.listening(tm, () => {}, done);
-	tm.leave();
-});
-
 test('call factory for incoming connections', () => {
 	const socket = new EventEmitter();
 	const tm = {
@@ -465,8 +456,8 @@ test('remove id and handle of inbound connection', (done) => {
 	tm.knownIDs = [ 'abc', 'def' ];
 	tm.neigh = { 'abc': n1, 'def': n2 };
 	FSM.__config.states.listening(tm);
-	tm.socket.emit('secureConnection');
-	tm.socket.emit('secureConnection');
+	tm.socket.emit('secureConnection', {});
+	tm.socket.emit('secureConnection', {});
 	tm.on('lostNeigh', (n) => {
 		try {
 			expect(n).toBe(n1.data);
@@ -477,7 +468,7 @@ test('remove id and handle of inbound connection', (done) => {
 			done(e);
 		}
 	});
-	n1.emit('destroy');
+	n1.emit('destroy', {}, {});
 });
 
 test('remove id and handle of outbound connection', (done) => {
@@ -495,8 +486,8 @@ test('remove id and handle of outbound connection', (done) => {
 	tm.knownIDs = [ 'abc', 'def' ];
 	tm.neigh = { 'abc': n1, 'def': n2 };
 	FSM.__config.states.listening(tm);
-	tm.discovery.mock.calls[0][2]();
-	tm.discovery.mock.calls[0][2]();
+	tm.discovery.mock.calls[0][2]({});
+	tm.discovery.mock.calls[0][2]({});
 	tm.on('lostNeigh', (n) => {
 		try {
 			expect(n).toBe(n1.data);
@@ -507,7 +498,7 @@ test('remove id and handle of outbound connection', (done) => {
 			done(e);
 		}
 	});
-	n1.emit('destroy');
+	n1.emit('destroy', {}, {});
 });
 
 test('install destory of all neigh FSMs method', () => {
@@ -525,7 +516,7 @@ test('install destory of all neigh FSMs method', () => {
 		neigh: {}
 	};
 	FSM.__config.states.listening(tm);
-	n.forEach(() => tm.discovery.mock.calls[0][2]());
+	n.forEach(() => tm.discovery.mock.calls[0][2]({}));
 	tm._leave();
 	n.forEach((n) => expect(n.destroy.mock.calls.length).toEqual(1));
 });
@@ -582,4 +573,18 @@ test('close socket on leave', (done) => {
 	expect(tm.socket.close.mock.calls.length).toEqual(1);
 	tm.on('goodbye', () => done());
 	tm.socket.emit('close');
+});
+
+test('resolve on leave', () => {
+	const q = tubemail({
+		ca: Buffer.alloc(0),
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		port: 4321,
+		discovery: () => {}
+	});
+	FSM.__data.socket = new EventEmitter();
+	FSM.__config.states.listening(FSM.__data, () => {}, () => FSM.__data.emit('goodbye'));
+	FSM.__fsm.emit('state:listening', FSM.__data);
+	return q.then((realm) => realm.leave());
 });

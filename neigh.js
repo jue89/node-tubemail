@@ -4,6 +4,7 @@ const util = require('util');
 const x509 = require('x509');
 const set = require('./set.js');
 const FSM = require('./fsm.js').FSM;
+const TEL = require('./tel.js').TemporaryEventListener;
 const S2B = require('./stream2block.js');
 
 const EMJ = Buffer.from('🛰');
@@ -27,11 +28,12 @@ const connect = (opts) => (n, state, destroy) => {
 		key: opts.local.key,
 		cert: opts.local.cert,
 		checkServerIdentity: () => undefined
-	}).on('secureConnect', () => {
+	}));
+	n.tel = new TEL(n.socket).on('secureConnect', () => {
 		state(opts.state);
 	}).on('error', (err) => {
 		destroy(err);
-	}));
+	});
 };
 
 const checkAuth = (opts) => (n, state, destroy) => {
@@ -54,7 +56,7 @@ const getSocketInfo = (opts) => (n, state, destroy) => {
 
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };
 const receiveRemoteID = (opts) => (n, state, destroy) => {
-	n.interface.on('data', (x) => {
+	n.tel = new TEL(n.interface).on('data', (x) => {
 		try {
 			// Check if welcome message is complete
 			check(x.length === EMJ.length + 64, 'Incomplete welcome message');
@@ -80,8 +82,14 @@ const receiveRemoteID = (opts) => (n, state, destroy) => {
 		} catch (e) {
 			destroy(e);
 		}
-	}).on('close', () => destroy(new Error('Remote host closed the connection')));
-	setTimeout(() => destroy(new Error('Remote host has not sent its ID')), 5000);
+	}).on('close', () => {
+		destroy(new Error('Remote host closed the connection'));
+	}).on('error', (e) => {
+		destroy(e);
+	});
+	setTimeout(() => {
+		destroy(new Error('Remote host has not sent its ID'));
+	}, 5000);
 };
 
 const sendLocalID = (opts) => (n, state, destroy) => {
@@ -90,21 +98,19 @@ const sendLocalID = (opts) => (n, state, destroy) => {
 };
 
 const connected = (opts) => (n, state, destroy) => {
-	n.interface.on('data', (data) => {
+	n.tel = new TEL(n.interface).on('data', (data) => {
 		n.emit('message', data);
 	}).on('close', () => {
 		destroy(new Error('Connection closed'));
+	}).on('error', (e) => {
+		destroy(e);
 	});
 };
 
 const onLeave = (n) => {
-	if (n.socket) {
-		n.socket.removeAllListeners('secureConnect');
-		n.socket.removeAllListeners('error');
-	}
-	if (n.interface) {
-		n.interface.removeAllListeners('data');
-		n.interface.removeAllListeners('close');
+	if (n.tel) {
+		n.tel.clear();
+		delete n.tel;
 	}
 };
 

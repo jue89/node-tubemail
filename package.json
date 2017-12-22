@@ -1,6 +1,6 @@
 {
   "name": "tubemail",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TLS Mesh Network",
   "main": "tubemail.js",
   "bin": {
@@ -23,7 +23,7 @@
   "homepage": "https://github.com/jue89/node-tubemail#readme",
   "license": "MIT",
   "dependencies": {
-    "x509": "^0.3.2"
+    "x509": "^0.3.3"
   },
   "devDependencies": {
     "happiness": "^10.0.2",
@@ -35,7 +35,7 @@
       "describe",
       "test",
       "expect",
-	  "beforeEach"
+      "beforeEach"
     ]
   },
   "jest": {

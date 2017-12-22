@@ -50,11 +50,21 @@ function Stream2Block (stream) {
 		setImmediate(() => processChunk());
 	};
 	this.on('newListener', onNewListener);
+	// Bypass all errors
+	const onError = (err) => {
+		this.emit('error', err);
+	};
+	this.stream.on('error', onError);
+	this.stream.on('clientError', onError);
+	this.stream.on('tlsClientError', onError);
 	// Once the stream has been closed, we release the handle and remove our
 	// event listeners. So if you want to destroy s2b, just close the stream.
 	this.stream.on('close', () => {
 		this.stream.removeListener('data', onData);
-		this.removeListener('newListener', onNewListener);
+		this.stream.removeListener('newListener', onNewListener);
+		this.stream.removeListener('error', onError);
+		this.stream.removeListener('clientError', onError);
+		this.stream.removeListener('tlsClientError', onError);
 		delete this.stream;
 		this.emit('close');
 	});

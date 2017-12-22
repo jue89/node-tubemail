@@ -89,7 +89,7 @@ Joins / create a new realm. ```opts``` is an object:
    * ```Object```: A port range. First port is specified by item ```from```, last one by item ```to```.
  * ```discovery```: Factory for discovery. Required. The factory's interface: ```(port, fingerPrint, newPeer) => stopDiscovery```:
    * ```port```: The actual port this peer is listening on.
-   * ```fingerPrint```: The realm's finger print for finding other peers. All peers using the same realm certificate will receive the same finger print to search for.
+   * ```fingerPrint```: The realm's fingerprint for finding other peers. All peers using the same realm certificate will receive the same fingerprint to search for.
    * ```newPeer```: A callback function that shall be called if discovery discovered a new peer. It awaits one object with the items ```host``` and ```port```. I think you know what to fill in ;)
    * ```stopDiscovery```: Will be called by *Tube Mail* if discovery shall be stopped.
 
@@ -107,7 +107,7 @@ The actual port *Tube Mail* is listening on for incoming connections. This is qu
 
 #### Property: fingerPrint
 
-The realm's finger print that is used to identify other peers belonging to the same realm.
+The realm's fingerprint that is used to identify other peers belonging to the same realm.
 
 #### Property: info
 
@@ -156,15 +156,15 @@ Once we have left the realm (i.e. stopped discovery, disconnected from all neigh
 realm.send(message);
 ```
 
-Broadcast ```message``` to all connected neighbours. ```meassge``` must be a *Buffer*.
+Broadcast ```message``` to all connected neighbours. ```message``` must be a *Buffer*.
 
 #### Method: leave
 
 ```js
-realm.leave();
+realm.leave().then(() => {...});
 ```
 
-Shutdown *Tube Mail*.
+Shutdown *Tube Mail*. Will resolve once the listening socket and connections have been closed.
 
 ### Class: Neighbour
 
@@ -206,4 +206,4 @@ neigh.on('goodbye', () => {...});
 neigh.send(message);
 ```
 
-Send ```message``` to ```neigh```. ```meassge``` must be a *Buffer*.
+Send ```message``` to ```neigh```. ```message``` must be a *Buffer*.

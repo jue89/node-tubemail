@@ -1,6 +1,6 @@
 {
   "name": "tubemail",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "TLS Mesh Network",
   "main": "tubemail.js",
   "bin": {

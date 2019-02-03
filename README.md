@@ -207,3 +207,9 @@ neigh.send(message);
 ```
 
 Send ```message``` to ```neigh```. ```message``` must be a *Buffer*.
+
+## Debugging
+
+If you are experiencing unexpected behaviour and wonder why other peers aren't connecting, you can make *Tube Mail* more verbose and report changes of the internal state machine by setting this environment variable:
+
+```export NODE_DEBUG=tubemail```

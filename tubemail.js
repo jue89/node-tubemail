@@ -65,7 +65,7 @@ Tubemail.prototype.leave = function () {
 	return new Promise((resolve) => {
 		if (!this._destroy) throw new Error('Destroy handler missing!');
 		this.once('goodbye', resolve);
-		this._destroy();
+		this._destroy(new Error('Goodbye!'));
 	});
 };
 
@@ -126,7 +126,7 @@ const fsmFactory = FSM({
 			};
 
 			set.hidden(tm, '_leave', () => {
-				neighs.forEach((n) => n.destroy());
+				neighs.forEach((n) => n.destroy(new Error('We closed the connection')));
 			});
 
 			// React to incoming connects

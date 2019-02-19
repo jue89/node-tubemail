@@ -23,7 +23,7 @@
   "homepage": "https://github.com/jue89/node-tubemail#readme",
   "license": "MIT",
   "dependencies": {
-    "x509": "^0.3.3"
+    "x509.js": "^1.0.0"
   },
   "devDependencies": {
     "happiness": "^10.0.2",

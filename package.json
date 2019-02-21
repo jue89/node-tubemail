@@ -23,6 +23,7 @@
   "homepage": "https://github.com/jue89/node-tubemail#readme",
   "license": "MIT",
   "dependencies": {
+    "bloxycrats": "git+https://github.com/jue89/node-bloxycrats.git#6b57ecd66a9c8eafa4dd0a2003295d11a92c6240",
     "x509.js": "^1.0.0"
   },
   "devDependencies": {

@@ -14,4 +14,15 @@ function getFingerprint (crt) {
 	return hash.digest('hex');
 };
 
-module.exports = {parseCert, getFingerprint};
+function raw2pem (raw) {
+	const data = raw.toString('base64');
+	const lines = [];
+	lines.push('-----BEGIN CERTIFICATE-----');
+	for (let i = 0; i < data.length; i += 64) {
+		lines.push(data.slice(i, i + 64));
+	}
+	lines.push('-----END CERTIFICATE-----');
+	return lines.join('\n');
+}
+
+module.exports = {parseCert, getFingerprint, raw2pem};

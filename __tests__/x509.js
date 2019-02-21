@@ -29,3 +29,13 @@ test('get fingerprint', () => {
 	expect(mockCrypto.__createHash.update.mock.calls[0][0].toString('hex')).toEqual(data.toString('hex'));
 	expect(mockCrypto.createHash.mock.calls[0][0]).toEqual('sha256');
 });
+
+test('convert RAW data into PEM format', () => {
+	const data = Buffer.alloc(64, 'b');
+	expect(x509.raw2pem(data)).toEqual([
+		'-----BEGIN CERTIFICATE-----',
+		'YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJi',
+		'YmJiYmJiYmJiYmJiYmJiYg==',
+		'-----END CERTIFICATE-----'
+	].join('\n'));
+});

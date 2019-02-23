@@ -82,6 +82,16 @@ test('raise connection event for outbound connections', () => {
 	expect(mockBloxycrats.mock.instances[0].direction).toEqual('out');
 });
 
+test('call closed callback for terminated outbound connections', () => {
+	const cm = new CM();
+	const onClose = jest.fn();
+	cm.connect({}, onClose);
+	mockTls.__connect.emit('close');
+	expect(onClose.mock.calls.length).toBe(1);
+	mockTls.__connect.emit('error', new Error());
+	expect(onClose.mock.calls.length).toBe(2);
+});
+
 test('close listen socket', () => {
 	const cm = new CM();
 	const q = cm.close();

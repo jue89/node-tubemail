@@ -102,11 +102,22 @@ module.exports = (opts) => new Promise((resolve, reject) => {
 		});
 	}).state('active', (ctx, i, o, next) => {
 		// A potential new neighbour has been found
+		const activeConnections = {};
 		i('discovery', (info) => {
+			// Make sure the discoverd peer isn't connected outbound
+			const key = `[${info.host}]:${info.port}`;
+			if (activeConnections[key]) return;
+
+			// Make sure the discoverd peer hasn't connected inbound
 			if (ctx.getNeigh(info)) return;
-			// TODO: Suppress connections if a connection attempt is already queued
-			debug('potential neighbour: [%s]:%d', info.host, info.port);
-			ctx.connectionManager.connect(info);
+
+			// Connect to potential neighbour
+			debug('potential neighbour: %s', key);
+			activeConnections[key] = true;
+			ctx.connectionManager.connect(info, () => {
+				// Remove active connection if the connection has been closed ...
+				delete activeConnections[key];
+			});
 		});
 
 		// Start discovery

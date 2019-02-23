@@ -443,6 +443,24 @@ describe('State: active', () => {
 		expect(mockConnectionManager.prototype.connect.mock.calls.length).toBe(0);
 	});
 
+	test('suppress discovery events if connection already exists', () => {
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery: () => {}
+		});
+		const tm = mockFsm.mock.instances[0];
+		tm.testState('active');
+		const peer = {host: 'abc', port: 1234};
+		tm.ctx.emit('discovery', peer);
+		tm.ctx.emit('discovery', peer);
+		expect(mockConnectionManager.prototype.connect.mock.calls.length).toBe(1);
+		mockConnectionManager.prototype.connect.mock.calls[0][1]();
+		tm.ctx.emit('discovery', peer);
+		expect(mockConnectionManager.prototype.connect.mock.calls.length).toBe(2);
+	});
+
 	test('start discovery', () => {
 		const stop = () => {};
 		const discovery = jest.fn(() => stop);

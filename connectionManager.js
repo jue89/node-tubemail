@@ -56,12 +56,16 @@ class ConnectionManager extends EventEmitter {
 		});
 	}
 
-	connect (opts = {}) {
+	connect (opts = {}, onClose) {
 		// Connect to peer
 		const socket = tls.connect(Object.assign({}, this.opts, opts));
 		socket.on('connect', () => this._activeSocketsAdd(socket));
 		socket.on('secureConnect', () => this._newConnection(socket, 'out'));
 		socket.on('error', (err) => debug('Connection error: %s', err.message));
+		if (typeof onClose === 'function') {
+			socket.on('close', onClose);
+			socket.on('error', onClose);
+		}
 	}
 
 	close () {

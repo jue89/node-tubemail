@@ -81,6 +81,41 @@ describe('Hood', () => {
 		});
 	});
 
+	test('emit static discovery', () => {
+		const discovery = {host: 'abc', port: 1234};
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery
+		});
+		const onDiscovery = jest.fn();
+		expect(mockFsm.mock.instances[0].ctx.startDiscovery[0](null, null, onDiscovery));
+		expect(onDiscovery.mock.calls[0][0]).toBe(discovery);
+	});
+
+	test('complain about wrong formated static discovery: port', () => {
+		return tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery: {host: 'abc'}
+		}).catch((e) => {
+			expect(e).toHaveProperty('message', 'port for discovery is missing');
+		});
+	});
+
+	test('complain about wrong formated static discovery: host', () => {
+		return tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery: {port: 123}
+		}).catch((e) => {
+			expect(e).toHaveProperty('message', 'host for discovery is missing');
+		});
+	});
+
 	test('set port to 4816/4817/4818/4819 by default', () => {
 		tubemail({
 			ca: Buffer.alloc(0),

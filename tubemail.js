@@ -28,6 +28,12 @@ class Hood extends EventEmitter {
 			if (!(this.startDiscovery instanceof Array)) {
 				this.startDiscovery = [this.startDiscovery];
 			}
+			this.startDiscovery = this.startDiscovery.map((start) => {
+				if (typeof start === 'function') return start;
+				if (!start || !start.host) throw new Error('host for discovery is missing');
+				if (!start || !start.port) throw new Error('port for discovery is missing');
+				return (port, fp, onDiscovery) => onDiscovery(start);
+			});
 		} else {
 			this.startDiscovery = [];
 		}

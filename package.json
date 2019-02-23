@@ -24,7 +24,7 @@
   "license": "MIT",
   "dependencies": {
     "bloxycrats": "git+https://github.com/jue89/node-bloxycrats.git#6b57ecd66a9c8eafa4dd0a2003295d11a92c6240",
-    "edfsm": "^1.1.0",
+    "edfsm": "git+https://github.com/jue89/node-edfsm.git#99f75f9178c1fa71d222f09ff695d5522a74e9eb",
     "jsonschema": "^1.2.4",
     "x509.js": "^1.0.0"
   },

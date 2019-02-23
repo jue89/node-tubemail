@@ -19,12 +19,18 @@ class Hood extends EventEmitter {
 		check(opts.cert instanceof Buffer, 'cert must be a buffer');
 		check(opts.ca !== undefined, 'ca is missing');
 		check(opts.ca instanceof Buffer, 'ca must be a buffer');
-		check(opts.discovery !== undefined, 'discovery is missing');
 
 		// Store opts data
 		this.cert = opts.cert;
 		this.ca = opts.ca;
-		this.startDiscovery = opts.discovery;
+		if (opts.discovery) {
+			this.startDiscovery = opts.discovery;
+			if (!(this.startDiscovery instanceof Array)) {
+				this.startDiscovery = [this.startDiscovery];
+			}
+		} else {
+			this.startDiscovery = [];
+		}
 		if (typeof opts.port === 'number') {
 			this.portCandidates = [opts.port];
 		} else if (typeof opts.port === 'string') {
@@ -121,9 +127,11 @@ module.exports = (opts) => new Promise((resolve, reject) => {
 		});
 
 		// Start discovery
-		ctx.stopDiscovery = ctx.startDiscovery(ctx.port, ctx.fingerprint, (info) => {
-			o('discovery', info);
-		});
+		ctx.stopDiscovery = ctx.startDiscovery.map((start) => start(
+			ctx.port,
+			ctx.fingerprint,
+			(info) => o('discovery', info)
+		));
 
 		// A new connection has been established.
 		// This can be in- and outbound.
@@ -148,7 +156,12 @@ module.exports = (opts) => new Promise((resolve, reject) => {
 		const jobs = [];
 
 		// Stop discovery
-		if (typeof ctx.stopDiscovery === 'function') jobs.push(ctx.stopDiscovery());
+		if (ctx.stopDiscovery instanceof Array) {
+			ctx.stopDiscovery.forEach((stop) => {
+				if (typeof stop !== 'function') return;
+				jobs.push(stop());
+			});
+		}
 
 		// Close server
 		jobs.push(ctx.connectionManager.close());

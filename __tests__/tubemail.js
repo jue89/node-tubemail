@@ -81,16 +81,6 @@ describe('Hood', () => {
 		});
 	});
 
-	test('complain about missing discovery', () => {
-		return tubemail({
-			ca: Buffer.alloc(0),
-			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0)
-		}).catch((e) => {
-			expect(e).toHaveProperty('message', 'discovery is missing');
-		});
-	});
-
 	test('set port to 4816/4817/4818/4819 by default', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
@@ -306,8 +296,7 @@ describe('State: generateLocalID', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('generateLocalID');
@@ -476,11 +465,35 @@ describe('State: active', () => {
 		tm.testState('active');
 		expect(discovery.mock.calls[0][0]).toBe(tm.ctx.port);
 		expect(discovery.mock.calls[0][1]).toBe(tm.ctx.fingerprint);
-		expect(tm.ctx.stopDiscovery).toBe(stop);
+		expect(tm.ctx.stopDiscovery[0]).toBe(stop);
 		const onDiscovery = jest.fn();
 		tm.ctx.on('discovery', onDiscovery);
 		const info = {};
 		discovery.mock.calls[0][2](info);
+		expect(onDiscovery.mock.calls[0][0]).toBe(info);
+	});
+
+	test('start multiple discovery', () => {
+		const stop1 = () => {};
+		const discovery1 = jest.fn(() => stop1);
+		const stop2 = () => {};
+		const discovery2 = jest.fn(() => stop2);
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery: [discovery1, discovery2]
+		});
+		const tm = mockFsm.mock.instances[0];
+		tm.ctx.port = 1234;
+		tm.ctx.fingerprint = 'abc';
+		tm.testState('active');
+		expect(discovery1.mock.calls[0][0]).toBe(tm.ctx.port);
+		expect(discovery1.mock.calls[0][1]).toBe(tm.ctx.fingerprint);
+		expect(discovery2.mock.calls[0][0]).toBe(tm.ctx.port);
+		expect(discovery2.mock.calls[0][1]).toBe(tm.ctx.fingerprint);
+		expect(tm.ctx.stopDiscovery[0]).toBe(stop1);
+		expect(tm.ctx.stopDiscovery[1]).toBe(stop2);
 	});
 
 	test('run neigh factory', () => {
@@ -540,11 +553,11 @@ describe('State: final', () => {
 			discovery: () => () => Promise.resolve()
 		});
 		const tm = mockFsm.mock.instances[0];
-		tm.ctx.stopDiscovery = jest.fn();
+		tm.ctx.stopDiscovery = [jest.fn()];
 		const onGoodbye = jest.fn();
 		tm.ctx.on('goodbye', onGoodbye);
 		tm.testState('_final');
-		expect(tm.ctx.stopDiscovery.mock.calls.length).toBe(1);
+		expect(tm.ctx.stopDiscovery[0].mock.calls.length).toBe(1);
 		expect(mockConnectionManager.prototype.close.mock.calls.length).toBe(1);
 		expect(onGoodbye.mock.calls.length).toBe(0);
 		await nextEventLoop();

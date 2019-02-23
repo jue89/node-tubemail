@@ -148,6 +148,7 @@ module.exports = (opts) => new Promise((resolve, reject) => {
 		// We have successfully connected to a new neighbour
 		i('foundNeigh', (neigh) => {
 			ctx.neighbours.push(neigh);
+			ctx.setMaxListeners(10 + ctx.neighbours.length);
 		});
 
 		// We lost a neighbour :/

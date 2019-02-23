@@ -4,7 +4,7 @@
   "description": "TLS Mesh Network",
   "main": "tubemail.js",
   "bin": {
-    "createRealm": "./pki/createRealm.sh",
+    "createHood": "./pki/createHood.sh",
     "createPeer": "./pki/createPeer.sh"
   },
   "directories": {},

@@ -21,8 +21,7 @@ describe('Hood', () => {
 	test('complain about missing key', () => {
 		return tubemail({
 			cert: Buffer.alloc(0),
-			ca: Buffer.alloc(0),
-			discovery: () => {}
+			ca: Buffer.alloc(0)
 		}).catch((e) => {
 			expect(e).toHaveProperty('message', 'key is missing');
 		});
@@ -32,8 +31,7 @@ describe('Hood', () => {
 		return tubemail({
 			key: true,
 			cert: Buffer.alloc(0),
-			ca: Buffer.alloc(0),
-			discovery: () => {}
+			ca: Buffer.alloc(0)
 		}).catch((e) => {
 			expect(e).toHaveProperty('message', 'key must be a buffer');
 		});
@@ -42,8 +40,7 @@ describe('Hood', () => {
 	test('complain about missing cert', () => {
 		return tubemail({
 			key: Buffer.alloc(0),
-			ca: Buffer.alloc(0),
-			discovery: () => {}
+			ca: Buffer.alloc(0)
 		}).catch((e) => {
 			expect(e).toHaveProperty('message', 'cert is missing');
 		});
@@ -53,8 +50,7 @@ describe('Hood', () => {
 		return tubemail({
 			cert: true,
 			key: Buffer.alloc(0),
-			ca: Buffer.alloc(0),
-			discovery: () => {}
+			ca: Buffer.alloc(0)
 		}).catch((e) => {
 			expect(e).toHaveProperty('message', 'cert must be a buffer');
 		});
@@ -63,8 +59,7 @@ describe('Hood', () => {
 	test('complain about missing ca', () => {
 		return tubemail({
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		}).catch((e) => {
 			expect(e).toHaveProperty('message', 'ca is missing');
 		});
@@ -74,8 +69,7 @@ describe('Hood', () => {
 		return tubemail({
 			ca: true,
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		}).catch((e) => {
 			expect(e).toHaveProperty('message', 'ca must be a buffer');
 		});
@@ -90,7 +84,7 @@ describe('Hood', () => {
 			discovery
 		});
 		const onDiscovery = jest.fn();
-		expect(mockFsm.mock.instances[0].ctx.startDiscovery[0](null, null, onDiscovery));
+		expect(mockFsm.mock.instances[0].ctx.startDiscovery[0]({}, onDiscovery));
 		expect(onDiscovery.mock.calls[0][0]).toBe(discovery);
 	});
 
@@ -120,8 +114,7 @@ describe('Hood', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		expect(mockFsm.mock.instances[0].ctx.portCandidates).toEqual([4816, 4817, 4818, 4819]);
 	});
@@ -132,7 +125,6 @@ describe('Hood', () => {
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
 			cert: Buffer.alloc(0),
-			discovery: () => {},
 			port: port
 		});
 		expect(mockFsm.mock.instances[0].ctx.portCandidates).toEqual([port]);
@@ -144,7 +136,6 @@ describe('Hood', () => {
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
 			cert: Buffer.alloc(0),
-			discovery: () => {},
 			port: port
 		});
 		expect(mockFsm.mock.instances[0].ctx.portCandidates).toEqual([parseInt(port)]);
@@ -156,7 +147,6 @@ describe('Hood', () => {
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
 			cert: Buffer.alloc(0),
-			discovery: () => {},
 			port: port
 		});
 		expect(mockFsm.mock.instances[0].ctx.portCandidates).toEqual(port);
@@ -180,8 +170,7 @@ describe('Hood', () => {
 		tubemail({
 			ca: ca,
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		expect(mockX509.getFingerprint.mock.calls[0][0]).toBe(ca);
 		expect(mockFsm.mock.instances[0].ctx.fingerprint).toBe(fingerprint);
@@ -194,8 +183,7 @@ describe('Hood', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: cert,
-			discovery: () => {}
+			cert: cert
 		});
 		expect(mockX509.parseCert.mock.calls[0][0]).toBe(cert);
 		expect(mockFsm.mock.instances[0].ctx.info).toBe(info);
@@ -205,8 +193,7 @@ describe('Hood', () => {
 		const tm = {
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		};
 		tubemail(tm);
 		expect(mockConnectionManager.mock.calls[0][0].key).toBe(tm.key);
@@ -225,9 +212,7 @@ describe('Hood', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			port: 4321,
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0].ctx;
 		tm.neighbours = neigh;
@@ -246,9 +231,7 @@ describe('Hood', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			port: 4321,
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0].ctx;
 		tm.neighbours = neigh;
@@ -263,9 +246,7 @@ describe('Hood', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			port: 4321,
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0].ctx;
 		tm.neighbours = neigh;
@@ -276,9 +257,7 @@ describe('Hood', () => {
 		const q = tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			port: 4321,
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0].ctx;
 		tm.emit('listening');
@@ -291,9 +270,7 @@ describe('Hood', () => {
 		const q = tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			port: 4321,
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.next = jest.fn();
@@ -310,9 +287,7 @@ describe('Hood', () => {
 		const q = tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			port: 4321,
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0].ctx;
 		const err = new Error();
@@ -345,8 +320,7 @@ describe('State: generateLocalID', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('generateLocalID');
@@ -360,8 +334,7 @@ describe('State: listen', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.ctx.portCandidates = [port];
@@ -376,8 +349,7 @@ describe('State: listen', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.ctx.portCandidates = [1234];
@@ -394,8 +366,7 @@ describe('State: listen', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.ctx.portCandidates = [1234];
@@ -411,8 +382,7 @@ describe('State: listen', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.ctx.portCandidates = [];
@@ -426,8 +396,7 @@ describe('State: active', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		const onListening = jest.fn();
@@ -440,8 +409,7 @@ describe('State: active', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('active');
@@ -454,8 +422,7 @@ describe('State: active', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		const host = 'abc';
@@ -471,8 +438,7 @@ describe('State: active', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('active');
@@ -498,13 +464,12 @@ describe('State: active', () => {
 		tm.ctx.port = 1234;
 		tm.ctx.fingerprint = 'abc';
 		tm.testState('active');
-		expect(discovery.mock.calls[0][0]).toBe(tm.ctx.port);
-		expect(discovery.mock.calls[0][1]).toBe(tm.ctx.fingerprint);
+		expect(discovery.mock.calls[0][0]).toBe(tm.ctx);
 		expect(tm.ctx.stopDiscovery[0]).toBe(stop);
 		const onDiscovery = jest.fn();
 		tm.ctx.on('discovery', onDiscovery);
 		const info = {};
-		discovery.mock.calls[0][2](info);
+		discovery.mock.calls[0][1](info);
 		expect(onDiscovery.mock.calls[0][0]).toBe(info);
 	});
 
@@ -523,10 +488,8 @@ describe('State: active', () => {
 		tm.ctx.port = 1234;
 		tm.ctx.fingerprint = 'abc';
 		tm.testState('active');
-		expect(discovery1.mock.calls[0][0]).toBe(tm.ctx.port);
-		expect(discovery1.mock.calls[0][1]).toBe(tm.ctx.fingerprint);
-		expect(discovery2.mock.calls[0][0]).toBe(tm.ctx.port);
-		expect(discovery2.mock.calls[0][1]).toBe(tm.ctx.fingerprint);
+		expect(discovery1.mock.calls[0][0]).toBe(tm.ctx);
+		expect(discovery2.mock.calls[0][0]).toBe(tm.ctx);
 		expect(tm.ctx.stopDiscovery[0]).toBe(stop1);
 		expect(tm.ctx.stopDiscovery[1]).toBe(stop2);
 	});
@@ -535,8 +498,7 @@ describe('State: active', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('active');
@@ -550,8 +512,7 @@ describe('State: active', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('active');
@@ -564,8 +525,7 @@ describe('State: active', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => {}
+			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('active');
@@ -604,8 +564,7 @@ describe('State: final', () => {
 		tubemail({
 			ca: Buffer.alloc(0),
 			key: Buffer.alloc(0),
-			cert: Buffer.alloc(0),
-			discovery: () => () => Promise.resolve()
+			cert: Buffer.alloc(0)
 		}).catch(() => {});
 		const tm = mockFsm.mock.instances[0];
 		const onError = jest.fn();

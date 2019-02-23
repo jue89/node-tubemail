@@ -32,7 +32,7 @@ class Hood extends EventEmitter {
 				if (typeof start === 'function') return start;
 				if (!start || !start.host) throw new Error('host for discovery is missing');
 				if (!start || !start.port) throw new Error('port for discovery is missing');
-				return (port, fp, onDiscovery) => onDiscovery(start);
+				return (hood, onDiscovery) => onDiscovery(start);
 			});
 		} else {
 			this.startDiscovery = [];
@@ -133,11 +133,9 @@ module.exports = (opts) => new Promise((resolve, reject) => {
 		});
 
 		// Start discovery
-		ctx.stopDiscovery = ctx.startDiscovery.map((start) => start(
-			ctx.port,
-			ctx.fingerprint,
-			(info) => o('discovery', info)
-		));
+		ctx.stopDiscovery = ctx.startDiscovery.map((s) => s(ctx, (info) => {
+			o('discovery', info);
+		}));
 
 		// A new connection has been established.
 		// This can be in- and outbound.

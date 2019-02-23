@@ -7,7 +7,7 @@ Once connected, you get a fully meshed network to throw around some Buffers. TLS
 
 ## Example
 
-Install *tubemail* and *tubemail-mdns*. You will need the *avahi dnssd dev package* for the latter. It is named *libavahi-compat-libdnssd-dev* on Debian-flavoured systems.
+Install *tubemail* and *tubemail-mdns*.
 
 ```sh
 apt install libavahi-compat-libdnssd-dev
@@ -89,9 +89,11 @@ Joins / create a new hood. ```opts``` is an object:
    * `Number`: Listen on the specified port.
    * `Array`: A list of ports. *Tube Mail* will select a free one.
    * `Object`: A port range. First port is specified by item `from`, last one by item `to`.
- * `discovery`: A discovery service or an `Array` of discovery services. The service can been a `Function` or an `Object`. If the service is an `Object`, it must contain the items `host` and `port` pointing to another instance of *Tube Mail*. If the discovery service is a `Function`, it is a factory. The factory's interface: `(port, fingerprint, newPeer) => stopDiscovery`:
-   * `port`: The actual port this peer is listening on.
-   * `fingerprint`: The hood's fingerprint for finding other peers. All peers using the same hood certificate will receive the same fingerprint to search for.
+ * `discovery`: A discovery service or an `Array` of discovery services. The service can been a `Function` or an `Object`. If the service is an `Object`, it must contain the items `host` and `port` pointing to another instance of *Tube Mail*. If the discovery service is a `Function`, it is a factory. The factory's interface: `(hood, newPeer) => stopDiscovery`:
+   * `hood`: The hood's instance. Important object items:
+    * `port`: The actual port this peer is listening on.
+    * `fingerprint`: The hood's fingerprint for finding other peers. All peers using the same hood certificate will receive the same fingerprint to search for.
+    * `id`: The peer's local randomly generated ID.
    * `newPeer`: A callback function that shall be called if discovery discovered a new peer. It awaits one object with the items `host` and `port`. I think you know what to fill in ;)
    * `stopDiscovery`: Will be called by *Tube Mail* if discovery shall be stopped. If can be a `Promise`, that is fulfilled once the service fully shut down.
 

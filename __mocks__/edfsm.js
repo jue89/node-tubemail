@@ -1,8 +1,8 @@
-function MockFSM (opts) {
+const MockFSM = jest.fn(function (opts) {
 	this.states = {};
 	this.inputs = opts.inputs;
 	this.outputs = opts.outputs;
-}
+});
 
 MockFSM.prototype.state = function (name, handler) {
 	this.states[name] = handler;
@@ -35,3 +35,4 @@ MockFSM.prototype.run = function (ctx) {
 };
 
 module.exports = (opts) => new MockFSM(opts);
+module.exports.MockFSM = MockFSM;

@@ -88,6 +88,24 @@ describe('Hood', () => {
 		expect(onDiscovery.mock.calls[0][0]).toBe(discovery);
 	});
 
+	test('convert old discovery API to the new API', () => {
+		const discovery = jest.fn();
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery: (port, fingerprint, onPeer) => discovery(port, fingerprint, onPeer)
+		});
+		const ctx = mockFsm.mock.instances[0].ctx;
+		const port = 123;
+		const fingerprint = 'abc';
+		const onPeer = () => {};
+		ctx.startDiscovery[0]({port, fingerprint}, onPeer);
+		expect(discovery.mock.calls[0][0]).toBe(port);
+		expect(discovery.mock.calls[0][1]).toBe(fingerprint);
+		expect(discovery.mock.calls[0][2]).toBe(onPeer);
+	});
+
 	test('complain about wrong formated static discovery: port', () => {
 		return tubemail({
 			ca: Buffer.alloc(0),

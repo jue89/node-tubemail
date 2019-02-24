@@ -29,10 +29,15 @@ class Hood extends EventEmitter {
 				this.startDiscovery = [this.startDiscovery];
 			}
 			this.startDiscovery = this.startDiscovery.map((start) => {
-				if (typeof start === 'function') return start;
-				if (!start || !start.host) throw new Error('host for discovery is missing');
-				if (!start || !start.port) throw new Error('port for discovery is missing');
-				return (hood, onDiscovery) => onDiscovery(start);
+				if (typeof start === 'function') {
+					// Convert old discovery service API to new one
+					if (start.length === 3) return (hood, onDiscovery) => start(hood.port, hood.fingerprint, onDiscovery);
+					else return start;
+				} else {
+					if (!start || !start.host) throw new Error('host for discovery is missing');
+					if (!start || !start.port) throw new Error('port for discovery is missing');
+					return (hood, onDiscovery) => onDiscovery(start);
+				}
 			});
 		} else {
 			this.startDiscovery = [];

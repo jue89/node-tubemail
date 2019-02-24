@@ -1,152 +1,156 @@
+const fs = require('fs');
+const path = require('path');
 const EventEmitter = require('events');
-const tls = require('tls');
+const EDFSM = require('edfsm');
 const util = require('util');
-const x509 = require('x509');
-const set = require('./set.js');
-const FSM = require('./fsm.js').FSM;
-const TEL = require('./tel.js').TemporaryEventListener;
-const S2B = require('./stream2block.js');
+const debug = util.debuglog('tubemail-neigh');
 
-const EMJ = Buffer.from('🛰');
+const msgTypesDir = path.join(__dirname, 'msgtypes');
+const msgTypes = fs.readdirSync(msgTypesDir)
+	.filter((file) => file.substr(-3) === '.js')
+	.sort()
+	.map((file) => require(path.join(msgTypesDir, file)));
 
-function Neigh (socket) {
-	EventEmitter.call(this);
-	if (socket) set.hidden(this, 'socket', socket);
-}
-util.inherits(Neigh, EventEmitter);
+class Neighbour extends EventEmitter {
+	constructor (hood, connection) {
+		super();
 
-Neigh.prototype.send = function (msg) {
-	if (!(msg instanceof Buffer)) throw new Error('Payload must be a Buffer');
-	this.interface.send(msg);
-};
+		this.hood = hood;
+		this.connection = connection;
+		this.direction = connection.direction;
+		this.info = connection.info;
+		this.host = connection.host;
+		this.port = connection.port;
 
-const connect = (opts) => (n, state, destroy) => {
-	set.hidden(n, 'socket', tls.connect({
-		host: opts.remote.host,
-		port: opts.remote.port,
-		ca: [opts.local.ca],
-		key: opts.local.key,
-		cert: opts.local.cert,
-		checkServerIdentity: () => undefined
-	}));
-	n.tel = new TEL(n.socket).on('secureConnect', () => {
-		state(opts.state);
-	}).on('error', (err) => {
-		destroy(err);
-	});
-};
+		// Listen to ingress messages
+		this.ipkt = new EventEmitter();
+		this.connection.on('message', (frame) => {
+			try {
+				// Make sure the frame is not empty
+				if (frame.length === 0) {
+					throw new Error(`Received empty frame`);
+				}
 
-const checkAuth = (opts) => (n, state, destroy) => {
-	if (n.socket.authorized) {
-		set.hidden(n, 'interface', new S2B(n.socket));
-		state(opts.state);
-	} else {
-		destroy(new Error(n.socket.authorizationError));
+				// Identify the frame type
+				const type = msgTypes[frame[0]];
+				if (type === undefined) {
+					throw new Error(`Unknown frametype: ${frame[0]}`);
+				}
+
+				// Convert payload
+				const payload = type.unpack(frame.slice(1));
+
+				debug('%s ingress: %s', this.toString(), type.name);
+				this.ipkt.emit(type.name, payload);
+			} catch (err) {
+				debug('%s parser error: %s', this.toString(), err.message);
+				this.emit('parserError', err);
+			}
+		});
+
+		// Listen to outgress packets
+		this.opkt = new EventEmitter();
+		msgTypes.forEach((type) => {
+			this.opkt.on(type.name, (data) => {
+				this.connection.send([type.field, type.pack(data)]);
+				debug('%s outgress: %s', this.toString(), type.name);
+			});
+		});
+
+		// Propagate close events
+		this.connection.on('close', () => this.emit('close'));
 	}
-};
 
-const raw2pem = (raw) => `-----BEGIN CERTIFICATE-----\n${raw.toString('base64')}\n-----END CERTIFICATE-----`;
-const getSocketInfo = (opts) => (n, state, destroy) => {
-	set.readonly(n, 'host', n.socket.remoteAddress);
-	set.readonly(n, 'port', n.socket.remotePort);
-	const cert = raw2pem(n.socket.getPeerCertificate().raw);
-	set.readonly(n, 'info', x509.parseCert(cert));
-	state(opts.state);
-};
+	send (msg) {
+		this.opkt.emit('data-buffer', msg);
+	}
 
-const check = (cond, msg) => { if (!cond) throw new Error(msg); };
-const receiveRemoteID = (opts) => (n, state, destroy) => {
-	n.tel = new TEL(n.interface).on('data', (x) => {
-		try {
-			// Check if welcome message is complete
-			check(x.length === EMJ.length + 64, 'Incomplete welcome message');
-			check(Buffer.compare(EMJ, x.slice(0, EMJ.length)) === 0, 'Magic missing');
+	toString () {
+		let idStr = `Neighbour [${this.host}]:${this.port}`;
+		if (this.id) idStr += ` ${this.id.slice(0, 7)}`;
+		return `<${idStr}>`;
+	}
+}
 
-			// Check it if we should keep the connection
-			const _id = x.slice(EMJ.length);
-			const id = _id.toString('hex');
-			const cmp = Buffer.compare(opts.local._id, _id);
-			check(cmp !== 0, 'We connected ourselfes');
-			if (opts.inbound) {
-				check(cmp < 0, 'Remote ID lower than ours');
-			} else {
-				check(cmp > 0, 'Remote ID higher than ours');
+module.exports = (hood, connection) => {
+	const ctx = new Neighbour(hood, connection);
+	return EDFSM({
+		inputs: {
+			main: ctx,
+			hood: hood,
+			pkt: ctx.ipkt
+		},
+		outputs: {
+			main: ctx,
+			hood: hood,
+			pkt: ctx.opkt
+		}
+	}).state('hello', (ctx, i, o, next) => {
+		o.pkt('hello');
+		i.pkt('hello', () => next('iam'));
+		i('close', () => next(new Error('remote side closed the connection')));
+		next.timeout(10000, new Error('remote side sent no valid magic'));
+	}).state('iam', (ctx, i, o, next) => {
+		o.pkt('iam', ctx.hood);
+		i.pkt('iam', (pkt) => {
+			// Store pkt information
+			ctx.id = pkt.id;
+			ctx.listenPort = pkt.port;
+
+			// Check ID
+			if (pkt.id === ctx.hood.id) return next(new Error('we connected ourselfes'));
+			if (ctx.hood.getNeigh({id: pkt.id})) return next(new Error('remote ID is already connected'));
+			if (ctx.direction === 'in' && pkt.id > ctx.hood.id) {
+				o.hood('discovery', { host: ctx.host, port: pkt.port });
+				return next(new Error('remote ID lower than ours'));
+			} else if (ctx.direction === 'out' && pkt.id < ctx.hood.id) {
+				return next(new Error('remote ID higher than ours'));
 			}
 
-			// Check if we already know the other side
-			check(opts.local.knownIDs.indexOf(id) === -1, 'Remote ID is already connected');
+			// We found a new neighbour \o/
+			next('connected');
+		});
+		i('close', () => next(new Error('remote side closed the connection')));
+		next.timeout(10000, new Error('remote side sent no valid iam packet'));
+	}).state('connected', (ctx, i, o, next) => {
+		// Tell everybody about the new neighbour
+		o.hood('foundNeigh', ctx);
+		debug('%s connected', ctx.toString());
 
-			set.hidden(n, '_id', _id);
-			set.readonly(n, 'id', id);
-			state(opts.state);
-		} catch (e) {
-			destroy(e);
+		// Listen to neighbours from the remote side
+		i.pkt('neigh', (pkt) => o.hood('discovery', pkt));
+
+		// Tell our neighbour about the other neighbours
+		const publishNeigh = (neigh) => {
+			if (neigh === ctx) return;
+			o.pkt('neigh', {
+				host: neigh.host,
+				port: neigh.listenPort,
+				id: neigh.id
+			});
+			debug('%s neighbour advertise: [%s]:%s %s', ctx.toString(), neigh.host, neigh.listenPort, neigh.id.slice(0, 7));
+		};
+		i.hood('foundNeigh', (n) => publishNeigh(n));
+		ctx.hood.neighbours.forEach((n) => publishNeigh(n));
+
+		// Listen for data
+		i.pkt('data-buffer', (msg) => {
+			o('message', msg, ctx);
+			o.hood('message', msg, ctx);
+		});
+
+		// Listen for close events of the underlaying socket
+		i('close', () => next(null));
+	}).final((ctx, i, o, end, err) => {
+		if (!err) {
+			o.hood('lostNeigh', ctx);
+			debug('%s disconnected', ctx.toString());
+		} else {
+			debug('%s disconnected: %s', ctx.toString(), err.message);
 		}
-	}).on('close', () => {
-		destroy(new Error('Remote host closed the connection'));
-	}).on('error', (e) => {
-		destroy(e);
-	});
-	setTimeout(() => {
-		destroy(new Error('Remote host has not sent its ID'));
-	}, 5000);
-};
-
-const sendLocalID = (opts) => (n, state, destroy) => {
-	n.interface.send(Buffer.concat([EMJ, opts.local._id]));
-	state(opts.state);
-};
-
-const connected = (opts) => (n, state, destroy) => {
-	n.tel = new TEL(n.interface).on('data', (data) => {
-		n.emit('message', data);
-	}).on('close', () => {
-		destroy(new Error('Connection closed'));
-	}).on('error', (e) => {
-		destroy(e);
-	});
-};
-
-const onLeave = (n) => {
-	if (n.tel) {
-		n.tel.clear();
-		delete n.tel;
-	}
-};
-
-const onDestroy = (n) => {
-	if (n.socket && !n.socket.destroyed) n.socket.destroy();
-	n.emit('goodbye');
-};
-
-const outbound = (local, remote) => FSM({
-	onLeave,
-	onDestroy,
-	firstState: 'connect',
-	states: {
-		connect: connect({state: 'checkAuth', remote, local}),
-		checkAuth: checkAuth({state: 'getSocketInfo'}),
-		getSocketInfo: getSocketInfo({state: 'receiveRemoteID'}),
-		receiveRemoteID: receiveRemoteID({state: 'sendLocalID', local, inbound: false}),
-		sendLocalID: sendLocalID({state: 'connected', local}),
-		connected: connected({})
-	}
-})(new Neigh());
-
-const inbound = (local, socket) => FSM({
-	onLeave,
-	onDestroy,
-	firstState: 'checkAuth',
-	states: {
-		checkAuth: checkAuth({state: 'getSocketInfo'}),
-		getSocketInfo: getSocketInfo({state: 'sendLocalID'}),
-		sendLocalID: sendLocalID({state: 'receiveRemoteID', local}),
-		receiveRemoteID: receiveRemoteID({state: 'connected', local, inbound: true}),
-		connected: connected({})
-	}
-})(new Neigh(socket));
-
-module.exports = {
-	outbound,
-	inbound
+		ctx.connection.close().then(() => {
+			o('goodbye');
+			end();
+		});
+	}).run(ctx);
 };

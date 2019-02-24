@@ -1,15 +1,15 @@
 {
   "name": "tubemail",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "TLS Mesh Network",
   "main": "tubemail.js",
   "bin": {
-    "createRealm": "./pki/createRealm.sh",
+    "createHood": "./pki/createHood.sh",
     "createPeer": "./pki/createPeer.sh"
   },
   "directories": {},
   "scripts": {
-    "test": "happiness && jest",
+    "test": "happiness && jest --verbose",
     "watch": "jest --watchAll"
   },
   "author": "Juergen Fitschen <me@jue.yt>",
@@ -23,11 +23,14 @@
   "homepage": "https://github.com/jue89/node-tubemail#readme",
   "license": "MIT",
   "dependencies": {
-    "x509": "^0.3.3"
+    "bloxycrats": "^1.1.0",
+    "edfsm": "^1.1.1",
+    "jsonschema": "^1.2.4",
+    "x509.js": "^1.0.0"
   },
   "devDependencies": {
     "happiness": "^10.0.2",
-    "jest": "^21.2.1"
+    "jest": "^24.1.0"
   },
   "happiness": {
     "globals": [

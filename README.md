@@ -10,7 +10,6 @@ Once connected, you get a fully meshed network to throw around some Buffers. TLS
 Install *tubemail* and *tubemail-mdns*.
 
 ```sh
-apt install libavahi-compat-libdnssd-dev
 npm install -g tubemail tubemail-mdns
 ```
 
@@ -35,7 +34,6 @@ Create scripts for the peers in the same directory:
 // peer1.js
 const fs = require('fs');
 const tubemail = require('tubemail');
-const mdnsDiscovery = require('tubemail-mdns');
 
 const toBuffer = (obj) => Buffer.from(obj.toString());
 
@@ -43,7 +41,7 @@ tubemail.join({
 	key: fs.readFileSync('./hood.peer1.key'),
 	cert: fs.readFileSync('./hood.peer1.crt'),
 	ca: fs.readFileSync('./hood.crt'),
-	discovery: mdnsDiscovery()
+	discovery: require('tubemail-mdns');
 }).then((hood) => {
 	// Send the current time every second
 	setInterval(() => hood.send(toBuffer(new Date())), 1000);
@@ -57,7 +55,6 @@ tubemail.join({
 // peer2.js
 const fs = require('fs');
 const tubemail = require('tubemail');
-const mdnsDiscovery = require('tubemail-mdns');
 
 const toBuffer = (obj) => Buffer.from(obj.toString());
 
@@ -65,7 +62,7 @@ tubemail.join({
 	key: fs.readFileSync('./hood.peer2.key'),
 	cert: fs.readFileSync('./hood.peer2.crt'),
 	ca: fs.readFileSync('./hood.crt'),
-	discovery: mdnsDiscovery()
+	discovery: require('tubemail-mdns')
 }).then((hood) => {
 	hood.on('message', (msg) => console.log(msg.toString()));
 });
@@ -91,11 +88,11 @@ Joins / create a new hood. ```opts``` is an object:
    * `Object`: A port range. First port is specified by item `from`, last one by item `to`.
  * `discovery`: A discovery service or an `Array` of discovery services. The service can been a `Function` or an `Object`. If the service is an `Object`, it must contain the items `host` and `port` pointing to another instance of *Tube Mail*. If the discovery service is a `Function`, it is a factory. The factory's interface: `(hood, newPeer) => stopDiscovery`:
    * `hood`: The hood's instance. Important object items:
-    * `port`: The actual port this peer is listening on.
-    * `fingerprint`: The hood's fingerprint for finding other peers. All peers using the same hood certificate will receive the same fingerprint to search for.
-    * `id`: The peer's local randomly generated ID.
+     * `port`: The actual port this peer is listening on.
+     * `fingerprint`: The hood's fingerprint for finding other peers. All peers using the same hood certificate will receive the same fingerprint to search for.
+     * `id`: The peer's local randomly generated ID.
    * `newPeer`: A callback function that shall be called if discovery discovered a new peer. It awaits one object with the items `host` and `port`. I think you know what to fill in ;)
-   * `stopDiscovery`: Will be called by *Tube Mail* if discovery shall be stopped. If can be a `Promise`, that is fulfilled once the service fully shut down.
+   * `stopDiscovery`: If this is a function, it will be called by *Tube Mail* once discovery shall be stopped. The function may return a `Promise` that is fulfilled once the service is fully shut down.
 
 You do not have to implement the discovery by yourself if you don't want to. Check out:
  * [tubemail-mdns](https://github.com/jue89/node-tubemail-mdns): Discovers other peers on the local network using mDNS / DNS-SD.
@@ -107,7 +104,7 @@ Resolved ```hood``` is an instance of Hood.
 
 #### Property: port
 
-The actual port *Tube Mail* is listening on for incoming connections. This is quite handy if you specified several ports.
+The actual port *Tube Mail* is listening on for incoming connections. This is quite handy if you specified several listen ports.
 
 #### Property: fingerprint
 
@@ -120,6 +117,22 @@ All information hold by the local peer's certificate. This is useful for obtaini
 #### Property: id
 
 The local ID. It will be generated on startup and is random.
+
+*Some additional facts:* The ID uniquely identifies an instance of Tube Mail. Its main purpose is to determine who has to connect to whom: **The connected peer always has the higher ID compared to the connecting peer.** If the handshake figures out that the oppsite is the case the connection attempt is aborted. Thereupon, the connected peer becomes the connecting peer and establishes a connection. This rule ensures that only one connection is established between two peers.
+
+#### Property: neighbours
+
+An array to the `Neighbour` instances of all connected neighbours.
+
+#### Event: discovery
+
+```js
+hood.on('discovery', (peer) => {...});
+```
+
+Is fired every time the discovery service discovered an unknown peer. The object `peer` holds the information of that peer and has at least the properties `host` and `port`.
+
+*Tubemail internally ensures that the potential neighbour is connected.*
 
 #### Event: foundNeigh
 
@@ -153,7 +166,6 @@ hood.on('goodbye', () => {...});
 
 Once we have left the hood (i.e. stopped discovery, disconnected from all neighbours and closed the port), the goodbye event will be fired.
 
-
 #### Method: send
 
 ```js
@@ -170,6 +182,19 @@ hood.leave().then(() => {...});
 
 Shutdown *Tube Mail*. Will resolve once the listening socket and connections have been closed.
 
+#### Method: getNeigh
+
+```js
+const neigh = hood.getNeigh(info);
+```
+
+Lookup a neighbour that matches the given `info`. `info` has the following attributes:
+ * `host`: The neighbour's IP address
+ * `port`: The neighbour's listen port
+ * `id`: The neighbour's ID
+
+Every given attribute has to match.
+
 ### Class: Neighbour
 
 #### Property: host
@@ -178,7 +203,17 @@ The remote IP address of our neighbour.
 
 #### Property: port
 
-The remote port.
+The remote port we are connected to.
+
+#### Property: listenPort
+
+The port the neighbour is listening on to new connections. This port differs from `port` if this is an inbound connection.
+
+#### Property: direction
+
+A string with the following possible values indication the connection type:
+ * `'in'`: inbound connection
+ * `'out'`: outbound connection
 
 #### Property: info
 

@@ -106,6 +106,15 @@ describe('Neighbour', () => {
 		expect(onClose.mock.calls.length).toBe(1);
 	});
 
+	test('convert connection error events to close events', () => {
+		const connection = connectionFacory();
+		const n = neigh({}, connection);
+		const onClose = jest.fn();
+		n.ctx.on('close', onClose);
+		connection.emit('error', new Error());
+		expect(onClose.mock.calls.length).toBe(1);
+	});
+
 	test('send payload', () => {
 		const connection = connectionFacory();
 		const n = neigh({}, connection);

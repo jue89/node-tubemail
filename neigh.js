@@ -59,6 +59,12 @@ class Neighbour extends EventEmitter {
 
 		// Propagate close events
 		this.connection.on('close', () => this.emit('close'));
+
+		// Convert error events to close events
+		this.connection.on('error', (err) => {
+			debug('%s connection error: %s', this.toString(), err.message);
+			this.emit('close');
+		});
 	}
 
 	send (msg) {

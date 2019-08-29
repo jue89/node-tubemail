@@ -223,9 +223,11 @@ describe('Hood', () => {
 	});
 
 	test('send data to all neighs', () => {
+		const needle1 = 'a';
+		const needle2 = 'b';
 		const neigh = [
-			{send: jest.fn()},
-			{send: jest.fn()}
+			{send: jest.fn(() => Promise.resolve(needle1))},
+			{send: jest.fn(() => Promise.resolve(needle2))}
 		];
 		tubemail({
 			ca: Buffer.alloc(0),
@@ -235,10 +237,11 @@ describe('Hood', () => {
 		const tm = mockFsm.mock.instances[0].ctx;
 		tm.neighbours = neigh;
 		const msg = Buffer.alloc(0);
-		tm.send(msg);
+		const q = tm.send(msg);
 		neigh.forEach((n) => {
 			expect(n.send.mock.calls[0][0]).toBe(msg);
 		});
+		return expect(q).resolves.toMatchObject([needle1, needle2]);
 	});
 
 	test('get neighbour by id', () => {

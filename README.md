@@ -169,10 +169,10 @@ Once we have left the hood (i.e. stopped discovery, disconnected from all neighb
 #### Method: send
 
 ```js
-hood.send(message);
+hood.send(message).then(() => {...});
 ```
 
-Broadcast `message` to all connected neighbours. `message` must be a *Buffer*.
+Broadcast `message` to all connected neighbours. `message` must be a *Buffer*. Resolves once `message` has been sent to all neighbours.
 
 #### Method: leave
 

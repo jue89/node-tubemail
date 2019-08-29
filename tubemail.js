@@ -74,7 +74,7 @@ class Hood extends EventEmitter {
 	}
 
 	send (msg) {
-		this.neighbours.forEach((n) => n.send(msg));
+		return Promise.all(this.neighbours.map((n) => n.send(msg)));
 	}
 
 	getNeigh (info) {

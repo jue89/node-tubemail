@@ -37,7 +37,7 @@ const tubemail = require('tubemail');
 
 const toBuffer = (obj) => Buffer.from(obj.toString());
 
-tubemail.join({
+tubemail({
 	key: fs.readFileSync('./hood.peer1.key'),
 	cert: fs.readFileSync('./hood.peer1.crt'),
 	ca: fs.readFileSync('./hood.crt'),
@@ -58,7 +58,7 @@ const tubemail = require('tubemail');
 
 const toBuffer = (obj) => Buffer.from(obj.toString());
 
-tubemail.join({
+tubemail({
 	key: fs.readFileSync('./hood.peer2.key'),
 	cert: fs.readFileSync('./hood.peer2.crt'),
 	ca: fs.readFileSync('./hood.crt'),

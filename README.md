@@ -242,10 +242,10 @@ neigh.on('goodbye', () => {...});
 #### Method: send
 
 ```js
-neigh.send(message);
+neigh.send(message).then(() => {...});
 ```
 
-Send `message` to `neigh`. `message` must be a *Buffer*.
+Send `message` to `neigh`. `message` must be a *Buffer*. Resolves when `message` has drained.
 
 ## Debugging
 

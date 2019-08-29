@@ -14,7 +14,7 @@ const mockDataBuffer = require('../msgtypes/03-data-buffer.js');
 
 const connectionFacory = () => {
 	const connection = new EventEmitter();
-	connection.send = jest.fn();
+	connection.send = jest.fn(() => Promise.resolve());
 	connection.close = jest.fn(() => Promise.resolve());
 	return connection;
 };
@@ -116,11 +116,15 @@ describe('Neighbour', () => {
 	});
 
 	test('send payload', () => {
+		const needle = {};
 		const connection = connectionFacory();
+		connection.send.mockReturnValueOnce(Promise.resolve(needle));
 		const n = neigh({}, connection);
 		const payload = Buffer.alloc(0);
-		n.ctx.send(payload);
+		const q = n.ctx.send(payload);
+		expect(q).toBeInstanceOf(Promise);
 		expect(mockDataBuffer.pack.mock.calls[0][0]).toBe(payload);
+		return expect(q).resolves.toBe(needle);
 	});
 });
 

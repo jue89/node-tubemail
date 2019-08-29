@@ -51,8 +51,9 @@ class Neighbour extends EventEmitter {
 		// Listen to outgress packets
 		this.opkt = new EventEmitter();
 		msgTypes.forEach((type) => {
-			this.opkt.on(type.name, (data) => {
-				this.connection.send([type.field, type.pack(data)]);
+			this.opkt.on(type.name, (data, done) => {
+				if (!done) done = () => {};
+				this.connection.send([type.field, type.pack(data)]).then(done);
 				debug('%s outgress: %s', this.toString(), type.name);
 			});
 		});
@@ -68,7 +69,7 @@ class Neighbour extends EventEmitter {
 	}
 
 	send (msg) {
-		this.opkt.emit('data-buffer', msg);
+		return new Promise((resolve) => this.opkt.emit('data-buffer', msg, resolve));
 	}
 
 	toString () {

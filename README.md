@@ -37,7 +37,7 @@ const tubemail = require('tubemail');
 
 const toBuffer = (obj) => Buffer.from(obj.toString());
 
-tubemail.join({
+tubemail({
 	key: fs.readFileSync('./hood.peer1.key'),
 	cert: fs.readFileSync('./hood.peer1.crt'),
 	ca: fs.readFileSync('./hood.crt'),
@@ -58,7 +58,7 @@ const tubemail = require('tubemail');
 
 const toBuffer = (obj) => Buffer.from(obj.toString());
 
-tubemail.join({
+tubemail({
 	key: fs.readFileSync('./hood.peer2.key'),
 	cert: fs.readFileSync('./hood.peer2.crt'),
 	ca: fs.readFileSync('./hood.crt'),
@@ -169,10 +169,10 @@ Once we have left the hood (i.e. stopped discovery, disconnected from all neighb
 #### Method: send
 
 ```js
-hood.send(message);
+hood.send(message).then(() => {...});
 ```
 
-Broadcast `message` to all connected neighbours. `message` must be a *Buffer*.
+Broadcast `message` to all connected neighbours. `message` must be a *Buffer*. Resolves once `message` has been sent to all neighbours.
 
 #### Method: leave
 
@@ -242,10 +242,10 @@ neigh.on('goodbye', () => {...});
 #### Method: send
 
 ```js
-neigh.send(message);
+neigh.send(message).then(() => {...});
 ```
 
-Send `message` to `neigh`. `message` must be a *Buffer*.
+Send `message` to `neigh`. `message` must be a *Buffer*. Resolves when `message` has drained.
 
 ## Debugging
 

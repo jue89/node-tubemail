@@ -34,9 +34,16 @@ class Hood extends EventEmitter {
 					if (start.length === 3) return (hood, onDiscovery) => start(hood.port, hood.fingerprint, onDiscovery);
 					else return start;
 				} else {
-					if (!start || !start.host) throw new Error('host for discovery is missing');
-					if (!start || !start.port) throw new Error('port for discovery is missing');
-					return (hood, onDiscovery) => onDiscovery(start);
+					if (!start.host) throw new Error('host for discovery is missing');
+					if (!start.port) throw new Error('port for discovery is missing');
+					if (start.interval === undefined) start.interval = 60000;
+					return (hood, onDiscovery) => {
+						onDiscovery(start);
+						if (start.interval) {
+							const interval = setInterval(() => onDiscovery(start), start.interval);
+							return () => clearInterval(interval);
+						}
+					};
 				}
 			});
 		} else {

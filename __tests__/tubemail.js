@@ -1,3 +1,6 @@
+jest.useFakeTimers();
+afterEach(() => jest.clearAllTimers());
+
 jest.mock('crypto');
 const mockCrypto = require('crypto');
 
@@ -84,8 +87,44 @@ describe('Hood', () => {
 			discovery
 		});
 		const onDiscovery = jest.fn();
-		expect(mockFsm.mock.instances[0].ctx.startDiscovery[0]({}, onDiscovery));
+		const tm = mockFsm.mock.instances[0];
+		expect(tm.ctx.startDiscovery.length).toBe(1);
+		const stopDiscovery = tm.ctx.startDiscovery[0]({}, onDiscovery);
 		expect(onDiscovery.mock.calls[0][0]).toBe(discovery);
+		jest.advanceTimersByTime(60000);
+		expect(onDiscovery.mock.calls[1][0]).toBe(discovery);
+		stopDiscovery();
+		jest.advanceTimersByTime(60000);
+		expect(onDiscovery.mock.calls.length).toBe(2);
+	});
+
+	test('emit static discovery with other interval', () => {
+		const interval = 123;
+		const discovery = {host: 'abc', port: 1234, interval};
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery
+		});
+		const onDiscovery = jest.fn();
+		mockFsm.mock.instances[0].ctx.startDiscovery[0]({}, onDiscovery);
+		jest.advanceTimersByTime(interval);
+		expect(onDiscovery.mock.calls.length).toBe(2);
+	});
+
+	test('emit static discovery without interval', () => {
+		const discovery = {host: 'abc', port: 1234, interval: 0};
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery
+		});
+		const onDiscovery = jest.fn();
+		mockFsm.mock.instances[0].ctx.startDiscovery[0]({}, onDiscovery);
+		jest.advanceTimersByTime(60000);
+		expect(onDiscovery.mock.calls.length).toBe(1);
 	});
 
 	test('convert old discovery API to the new API', () => {

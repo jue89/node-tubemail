@@ -1,5 +1,11 @@
+jest.useFakeTimers();
+afterEach(() => jest.clearAllTimers());
+
 jest.mock('crypto');
 const mockCrypto = require('crypto');
+
+jest.mock('dns');
+const mockDns = require('dns');
 
 jest.mock('../x509.js');
 const mockX509 = require('../x509.js');
@@ -84,8 +90,44 @@ describe('Hood', () => {
 			discovery
 		});
 		const onDiscovery = jest.fn();
-		expect(mockFsm.mock.instances[0].ctx.startDiscovery[0]({}, onDiscovery));
+		const tm = mockFsm.mock.instances[0];
+		expect(tm.ctx.startDiscovery.length).toBe(1);
+		const stopDiscovery = tm.ctx.startDiscovery[0]({}, onDiscovery);
 		expect(onDiscovery.mock.calls[0][0]).toBe(discovery);
+		jest.advanceTimersByTime(60000);
+		expect(onDiscovery.mock.calls[1][0]).toBe(discovery);
+		stopDiscovery();
+		jest.advanceTimersByTime(60000);
+		expect(onDiscovery.mock.calls.length).toBe(2);
+	});
+
+	test('emit static discovery with other interval', () => {
+		const interval = 123;
+		const discovery = {host: 'abc', port: 1234, interval};
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery
+		});
+		const onDiscovery = jest.fn();
+		mockFsm.mock.instances[0].ctx.startDiscovery[0]({}, onDiscovery);
+		jest.advanceTimersByTime(interval);
+		expect(onDiscovery.mock.calls.length).toBe(2);
+	});
+
+	test('emit static discovery without interval', () => {
+		const discovery = {host: 'abc', port: 1234, interval: 0};
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery
+		});
+		const onDiscovery = jest.fn();
+		mockFsm.mock.instances[0].ctx.startDiscovery[0]({}, onDiscovery);
+		jest.advanceTimersByTime(60000);
+		expect(onDiscovery.mock.calls.length).toBe(1);
 	});
 
 	test('convert old discovery API to the new API', () => {
@@ -434,9 +476,44 @@ describe('State: active', () => {
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('active');
-		const peer = {};
+		const peer = {host: '1.2.3.4'};
 		tm.ctx.emit('discovery', peer);
 		expect(mockConnectionManager.prototype.connect.mock.calls[0][0]).toBe(peer);
+		expect(mockDns.lookup.mock.calls.length).toBe(0);
+	});
+
+	test('convert hostnames to ip addresses', async () => {
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0)
+		});
+		const tm = mockFsm.mock.instances[0];
+		tm.testState('active');
+		const host = 'example.com';
+		const peer = {host};
+		const ip = '123.123.123.123';
+		mockDns.lookup.mockImplementationOnce((a, b, cb) => cb(null, ip));
+		tm.ctx.emit('discovery', peer);
+		await nextEventLoop();
+		expect(mockDns.lookup.mock.calls[0][0]).toBe(host);
+		expect(mockDns.lookup.mock.calls[0][1]).toMatchObject({verbatim: true});
+		expect(mockConnectionManager.prototype.connect.mock.calls[0][0].host).toBe(ip);
+	});
+
+	test('ignore non-resolvable hostnames', async () => {
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0)
+		});
+		const tm = mockFsm.mock.instances[0];
+		tm.testState('active');
+		const peer = {host: 'example.com'};
+		mockDns.lookup.mockImplementationOnce((a, b, cb) => cb(new Error()));
+		tm.ctx.emit('discovery', peer);
+		await nextEventLoop();
+		expect(mockConnectionManager.prototype.connect.mock.calls.length).toBe(0);
 	});
 
 	test('suppress discovery if neigh already known', () => {
@@ -446,7 +523,7 @@ describe('State: active', () => {
 			cert: Buffer.alloc(0)
 		});
 		const tm = mockFsm.mock.instances[0];
-		const host = 'abc';
+		const host = '1.2.3.4';
 		const port = 1234;
 		tm.ctx.neighbours.push({host, listenPort: port});
 		tm.testState('active');
@@ -463,7 +540,7 @@ describe('State: active', () => {
 		});
 		const tm = mockFsm.mock.instances[0];
 		tm.testState('active');
-		const peer = {host: 'abc', port: 1234};
+		const peer = {host: '1.2.3.4', port: 1234};
 		tm.ctx.emit('discovery', peer);
 		tm.ctx.emit('discovery', peer);
 		expect(mockConnectionManager.prototype.connect.mock.calls.length).toBe(1);
@@ -489,7 +566,7 @@ describe('State: active', () => {
 		expect(tm.ctx.stopDiscovery[0]).toBe(stop);
 		const onDiscovery = jest.fn();
 		tm.ctx.on('discovery', onDiscovery);
-		const info = {};
+		const info = {host: '1.2.3.4'};
 		discovery.mock.calls[0][1](info);
 		expect(onDiscovery.mock.calls[0][0]).toBe(info);
 	});

@@ -1,6 +1,6 @@
 {
   "name": "tubemail",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "TLS Mesh Network",
   "main": "tubemail.js",
   "bin": {
@@ -25,12 +25,12 @@
   "dependencies": {
     "bloxycrats": "^1.1.0",
     "edfsm": "^1.1.1",
-    "jsonschema": "^1.2.4",
+    "jsonschema": "^1.2.5",
     "x509.js": "^1.0.0"
   },
   "devDependencies": {
     "happiness": "^10.0.2",
-    "jest": "^24.9.0"
+    "jest": "^25.1.0"
   },
   "happiness": {
     "globals": [
@@ -38,7 +38,8 @@
       "describe",
       "test",
       "expect",
-      "beforeEach"
+      "beforeEach",
+      "afterEach"
     ]
   },
   "jest": {

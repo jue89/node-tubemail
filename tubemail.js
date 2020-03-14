@@ -1,11 +1,20 @@
 const EventEmitter = require('events');
 const crypto = require('crypto');
+const net = require('net');
+const dns = require('dns');
+const util = require('util');
 const EDFSM = require('edfsm');
 const ConnectionManager = require('./connectionManager.js');
 const x509 = require('./x509.js');
 const neigh = require('./neigh.js');
-const util = require('util');
 const debug = util.debuglog('tubemail-hood');
+
+const lookup = (host) => new Promise((resolve, reject) => {
+	dns.lookup(host, {verbatim: true}, (err, address) => {
+		if (err) reject(err);
+		else resolve(address);
+	});
+});
 
 const check = (cond, msg) => { if (!cond) throw new Error(msg); };
 class Hood extends EventEmitter {
@@ -127,12 +136,22 @@ module.exports = (opts) => new Promise((resolve, reject) => {
 	}).state('active', (ctx, i, o, next) => {
 		// A potential new neighbour has been found
 		const activeConnections = {};
-		i('discovery', (info) => {
-			// Make sure the discoverd peer isn't connected outbound
+		i('discovery', async (info) => {
+			if (!net.isIP(info.host)) {
+				// Convert hostnames to IP addresses
+				try {
+					info.host = await lookup(info.host);
+				} catch (err) {
+					debug('lookup %s failed: %s', info.host, err.code);
+					return;
+				}
+			}
+
+			// Make sure the discovered peer isn't connected outbound
 			const key = `[${info.host}]:${info.port}`;
 			if (activeConnections[key]) return;
 
-			// Make sure the discoverd peer hasn't connected inbound
+			// Make sure the discovered peer hasn't connected inbound
 			if (ctx.getNeigh(info)) return;
 
 			// Connect to potential neighbour

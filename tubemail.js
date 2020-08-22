@@ -5,6 +5,7 @@ const dns = require('dns');
 const util = require('util');
 const EDFSM = require('edfsm');
 const ConnectionManager = require('./connectionManager.js');
+const ReconnectTimer = require('./reconnectTimer.js');
 const x509 = require('./x509.js');
 const neigh = require('./neigh.js');
 const debug = util.debuglog('tubemail-hood');
@@ -32,6 +33,8 @@ class Hood extends EventEmitter {
 		// Store opts data
 		this.cert = opts.cert;
 		this.ca = opts.ca;
+		this.reconnectTimeout = (opts.reconnectTimeout === undefined) ? 7 * 24 * 60 * 60 * 1000 : opts.reconnectTimeout;
+		this.reconnectInterval = (opts.reconnectInterval === undefined) ? 2 * 60 * 1000 : opts.reconnectInterval;
 		if (opts.discovery) {
 			this.startDiscovery = opts.discovery;
 			if (!(this.startDiscovery instanceof Array)) {
@@ -174,22 +177,40 @@ module.exports = (opts) => new Promise((resolve, reject) => {
 			neigh(ctx, connection);
 		});
 
+		// Store for reconnect timers
+		ctx.reconnectTimer = new ReconnectTimer(ctx);
+
 		// We have successfully connected to a new neighbour
 		i('foundNeigh', (neigh) => {
 			ctx.neighbours.push(neigh);
 			ctx.setMaxListeners(10 + ctx.neighbours.length);
+
+			// Abort reconnect timers
+			ctx.reconnectTimer.remove(neigh);
 		});
 
 		// We lost a neighbour :/
 		i('lostNeigh', (neigh) => {
 			// Remove the neighbour from our list
 			ctx.neighbours = ctx.neighbours.filter((n) => n !== neigh);
+
+			// Add lost neighbour to reconnect timers
+			if (!ctx.reconnectTimeout || !ctx.reconnectInterval) return;
+			ctx.reconnectTimer.add(neigh, () => o('discovery', {
+				host: neigh.host,
+				port: neigh.listenPort
+			}));
 		});
 
 		// Tall everybody we've set up everything
 		o('listening');
 	}).final((ctx, i, o, end, err) => {
 		const jobs = [];
+
+		// Stop reconnect timers
+		if (ctx.reconnectTimer) {
+			ctx.reconnectTimer.removeAll();
+		}
 
 		// Stop discovery
 		if (ctx.stopDiscovery instanceof Array) {

@@ -93,6 +93,8 @@ Joins / create a new hood. ```opts``` is an object:
      * `id`: The peer's local randomly generated ID.
    * `newPeer`: A callback function that shall be called if discovery discovered a new peer. It awaits one object with the items `host` and `port`. I think you know what to fill in ;)
    * `stopDiscovery`: If this is a function, it will be called by *Tube Mail* once discovery shall be stopped. The function may return a `Promise` that is fulfilled once the service is fully shut down.
+ * `reconnectInterval`: A time in ms. If a connection to a neighbour is lost, try to reconnect in the given interval. Default: `120 * 1000`
+ * `reconnectTimeout`: A time in ms. If the connection to a lost neighbour cannot be reestablished during the given timeout, give up. Default: `7 * 24 * 60 * 60 * 1000`
 
 You do not have to implement the discovery by yourself if you don't want to. Check out:
  * [tubemail-mdns](https://github.com/jue89/node-tubemail-mdns): Discovers other peers on the local network using mDNS / DNS-SD.

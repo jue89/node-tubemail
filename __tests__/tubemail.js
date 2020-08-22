@@ -13,6 +13,9 @@ const mockX509 = require('../x509.js');
 jest.mock('../connectionManager.js');
 const mockConnectionManager = require('../connectionManager.js');
 
+jest.mock('../reconnectTimer.js');
+const mockReconnectTimer = require('../reconnectTimer.js');
+
 jest.mock('edfsm');
 const mockFsm = require('edfsm').MockFSM;
 
@@ -177,6 +180,16 @@ describe('Hood', () => {
 			cert: Buffer.alloc(0)
 		});
 		expect(mockFsm.mock.instances[0].ctx.portCandidates).toEqual([4816, 4817, 4818, 4819]);
+	});
+
+	test('set defualts for reconnectTimeout and reconnectInterval', () => {
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0)
+		});
+		expect(mockFsm.mock.instances[0].ctx.reconnectTimeout).toBe(7 * 24 * 60 * 60 * 1000);
+		expect(mockFsm.mock.instances[0].ctx.reconnectInterval).toBe(2 * 60 * 1000);
 	});
 
 	test('store specified port', () => {
@@ -635,6 +648,58 @@ describe('State: active', () => {
 		expect(tm.ctx.neighbours[0]).toBe(neigh2);
 		expect(tm.ctx.neighbours.length).toBe(1);
 	});
+
+	test('no reconnect timers if they have been disabled', () => {
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			reconnectTimeout: 0,
+			reconnectInterval: 0
+		});
+		const tm = mockFsm.mock.instances[0];
+		tm.testState('active');
+		tm.ctx.emit('lostNeigh', {});
+		expect(mockReconnectTimer.mock.calls[0][0].reconnectTimeout).toBe(0);
+		expect(mockReconnectTimer.mock.calls[0][0].reconnectInterval).toBe(0);
+		const rt = mockReconnectTimer.mock.instances[0];
+		expect(rt.add.mock.calls.length).toBe(0);
+	});
+
+	test('create reconnect timer on lostNeigh event', () => {
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0)
+		});
+		const tm = mockFsm.mock.instances[0];
+		tm.testState('active');
+		const neigh = {host: '::1', listenPort: 1337};
+		tm.ctx.emit('lostNeigh', neigh);
+		const rt = mockReconnectTimer.mock.instances[0];
+		expect(rt.add.mock.calls[0][0]).toBe(neigh);
+		const onDiscovery = jest.fn();
+		tm.ctx.on('discovery', onDiscovery);
+		rt.add.mock.calls[0][1]();
+		expect(onDiscovery.mock.calls[0][0]).toMatchObject({
+			host: neigh.host,
+			port: neigh.listenPort
+		});
+	});
+
+	test('remove reconnect timer on foundNeigh event', () => {
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0)
+		});
+		const tm = mockFsm.mock.instances[0];
+		tm.testState('active');
+		const neigh = {host: '::1', listenPort: 1337};
+		tm.ctx.emit('foundNeigh', neigh);
+		const rt = mockReconnectTimer.mock.instances[0];
+		expect(rt.remove.mock.calls[0][0]).toBe(neigh);
+	});
 });
 
 describe('State: final', () => {
@@ -656,6 +721,21 @@ describe('State: final', () => {
 		await nextEventLoop();
 		expect(onGoodbye.mock.calls.length).toBe(1);
 		expect(tm.next.mock.calls.length).toBe(1);
+	});
+
+	test('stop reconnect timers', () => {
+		tubemail({
+			ca: Buffer.alloc(0),
+			key: Buffer.alloc(0),
+			cert: Buffer.alloc(0),
+			discovery: () => () => Promise.resolve()
+		});
+		const tm = mockFsm.mock.instances[0];
+		/* eslint new-cap: "off" */
+		tm.ctx.reconnectTimer = new mockReconnectTimer();
+		tm.testState('_final');
+		const rt = mockReconnectTimer.mock.instances[0];
+		expect(rt.removeAll.mock.calls.length).toBe(1);
 	});
 
 	test('emit errors', () => {

@@ -1,6 +1,6 @@
 {
   "name": "tubemail",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "TLS Mesh Network",
   "main": "tubemail.js",
   "bin": {
@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "happiness": "^10.0.2",
-    "jest": "^25.1.0"
+    "jest": "^26.4.2"
   },
   "happiness": {
     "globals": [

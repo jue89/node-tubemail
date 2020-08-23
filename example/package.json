@@ -1,0 +1,8 @@
+{
+  "name": "example",
+  "version": "0.0.0",
+  "dependencies": {
+    "colors": "^1.4.0",
+    "tubemail-mdns": "^2.0.0"
+  }
+}

@@ -31,7 +31,7 @@ class CmdLineInterface extends EventEmitter {
 	printLine (line) {
 		process.stdout.clearLine();
 		process.stdout.cursorTo(0);
-		console.log(line);
+		console.log(new Date().toISOString(), line);
 		this.rl.prompt(true);
 	}
 }
@@ -85,12 +85,12 @@ tubemail({
 			// All other lines are sent to all other neighbours
 			hood.send(Buffer.from(line));
 		}
-		cli.printLine(`${colors.yellow(`<${hood.info.subject.commonName}>`)} ${line}`)
+		cli.printLine(`${colors.gray(`<${hood.info.subject.commonName}>`)} ${colors.brightWhite(line)}`)
 	})
 
 	// Display messages from other neighbours
 	hood.on('message', (msg, n) => {
-		cli.printLine(`${colors.yellow(`<${n.info.subject.commonName}>`)} ${msg.toString()}`);
+		cli.printLine(`${colors.yellow(`<${n.info.subject.commonName}>`)} ${colors.brightWhite(msg.toString())}`);
 	});
 
 	// If the CLI closes, leave the hood

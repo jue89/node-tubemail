@@ -38,7 +38,7 @@ test('complain about wrong port format', () => {
 		});
 		throw new Error('Failed');
 	} catch (err) {
-		expect(err.message).toEqual('instance.port must have a maximum value of 65535');
+		expect(err.message).toEqual('instance.port must be less than or equal to 65535');
 	}
 });
 

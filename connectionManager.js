@@ -5,6 +5,8 @@ const x509 = require('./x509.js');
 const util = require('util');
 const debug = util.debuglog('tubemail-connection');
 
+const KEEPALIVE_INTERVAL = 30 * 1000;
+
 class ConnectionManager extends EventEmitter {
 	constructor (opts) {
 		super();
@@ -22,6 +24,9 @@ class ConnectionManager extends EventEmitter {
 			debug('Rejected %s connection: %s', direction, socket.authorizationError);
 			return;
 		}
+
+		// Setup TCP keepalive
+		socket.setKeepAlive(true, KEEPALIVE_INTERVAL);
 
 		// Debugging
 		debug('Established %s connection: [%s]:%d', direction, socket.remoteAddress, socket.remotePort);

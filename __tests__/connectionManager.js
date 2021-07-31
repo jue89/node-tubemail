@@ -49,6 +49,7 @@ test('raise connection event for inbound connections', () => {
 	const objCert = {};
 	mockX509.parseCert.mockReturnValue(objCert);
 	mockTls.__createServer.emit('secureConnection', socket);
+	expect(socket.setKeepAlive.mock.calls[0]).toMatchObject([true, 30 * 1000]);
 	expect(mockBloxycrats.mock.calls[0][0]).toBe(socket);
 	expect(onConnection.mock.calls[0][0]).toBe(mockBloxycrats.mock.instances[0]);
 	expect(mockBloxycrats.mock.instances[0].direction).toEqual('in');
@@ -77,6 +78,7 @@ test('raise connection event for outbound connections', () => {
 	cm.connect(peer);
 	expect(mockTls.connect.mock.calls[0][0]).toMatchObject({...opts, ...peer});
 	mockTls.__connect.emit('secureConnect');
+	expect(mockTls.__connect.setKeepAlive.mock.calls[0]).toMatchObject([true, 30 * 1000]);
 	expect(mockBloxycrats.mock.calls[0][0]).toBe(mockTls.__connect);
 	expect(onConnection.mock.calls[0][0]).toBe(mockBloxycrats.mock.instances[0]);
 	expect(mockBloxycrats.mock.instances[0].direction).toEqual('out');

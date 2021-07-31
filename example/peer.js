@@ -85,8 +85,8 @@ tubemail({
 			// All other lines are sent to all other neighbours
 			hood.send(Buffer.from(line));
 		}
-		cli.printLine(`${colors.gray(`<${hood.info.subject.commonName}>`)} ${colors.brightWhite(line)}`)
-	})
+		cli.printLine(`${colors.gray(`<${hood.info.subject.commonName}>`)} ${colors.brightWhite(line)}`);
+	});
 
 	// Display messages from other neighbours
 	hood.on('message', (msg, n) => {
